@@ -60,6 +60,8 @@ function getCurrentUIContext() {
     };
 }
 
+
+
 async function sendAIPrompt() {
     const inputElement = document.getElementById('ai-prompt-input');
     const sendButton = document.getElementById('send-prompt-btn');
@@ -75,10 +77,7 @@ async function sendAIPrompt() {
     inputElement.disabled = true;
     sendButton.disabled = true;
 
-    // Create an empty AI message bubble immediately
-    const messageId = appendAIMessage('AI', '', false);
-    // Find the text container inside the new bubble to inject tokens into
-    const textContainer = document.querySelector(`#${messageId} > div:nth-child(2)`);
+    const thinkingId = appendAIMessage('SYSTEM', 'Processing request...', true);
 
     try {
         const tenantId = document.getElementById('currentTenant')?.innerText || 'TENANT-ACME';
@@ -100,47 +99,55 @@ async function sendAIPrompt() {
             })
         });
 
+        const result = await response.json();
+        document.getElementById(thinkingId)?.remove();
+
         if (!response.ok) {
             conversationHistory.pop(); 
-            throw new Error('Failed to process AI request.');
+            throw new Error(result.detail || 'Failed to process AI request.');
         }
 
-        // Read the stream token-by-token
-        const reader = response.body.getReader();
-        const decoder = new TextDecoder("utf-8");
-        let fullAIResponse = "";
+        // // --- THE ARCHITECTURE UPGRADE: CLIENT-SIDE TOOL EXECUTION ---
+        // if (result.type === 'ui_command' && result.command === 'ui_navigate') {
+        //     const { action, target_object, record_id, modal_type } = result.args;
+            
+        //     // Append a friendly message to the chat
+        //     conversationHistory.push({ role: "assistant", content: result.answer });
+        //     appendAIMessage('AI', result.answer);
 
-        while (true) {
-            const { value, done } = await reader.read();
-            if (done) break;
+        //     // Execute the navigation using your native router and state manager!
+        //     if (action === 'VIEW_RECORD') {
+        //         // Must set the recordId in URLState first so router.js picks it up
+        //         URLState.set({ object: target_object, view: 'detail', recordId: record_id });
+        //         initRouter(target_object, 'detail');
+        //     } else if (action === 'VIEW_LIST') {
+        //         // Clear the recordId and navigate to the list view
+        //         URLState.set({ object: target_object, view: 'list', recordId: null });
+        //         initRouter(target_object, 'list');
+        //     } else if (action === 'OPEN_MODAL') {
+        //         if (modal_type === 'IMPORT' || modal_type === 'EXPORT') {
+        //             // Trigger your native Data Migration Modal from index.html
+        //             if (typeof window.toggleMigrationModal === 'function') {
+        //                 window.toggleMigrationModal();
+        //             }
+        //         }
+        //     }
+        //     return; // Stop processing, we are done!
+        // }
+        // // --- END UPGRADE ---
 
-            const chunk = decoder.decode(value, { stream: true });
-            fullAIResponse += chunk;
 
-            // Render Markdown incrementally (if marked.js is available)
-            if (typeof marked !== 'undefined') {
-                textContainer.innerHTML = marked.parse(fullAIResponse);
-            } else {
-                textContainer.innerHTML = fullAIResponse.replace(/\n/g, '<br>');
-            }
 
-            // Scroll to bottom as text flows in
-            const chatHistory = document.getElementById('ai-chat-history');
-            chatHistory.scrollTop = chatHistory.scrollHeight;
-        }
-
+        let finalAnswer = result.answer;
         let requiresUIRefresh = false;
-        
-        // After stream is finished, check for the refresh tag
-        if (fullAIResponse.includes('[REFRESH]')) {
+
+        if (finalAnswer.includes('[REFRESH]')) {
             requiresUIRefresh = true;
-            fullAIResponse = fullAIResponse.replace('[REFRESH]', '').trim();
-            // Re-render without the tag
-            textContainer.innerHTML = typeof marked !== 'undefined' ? marked.parse(fullAIResponse) : fullAIResponse.replace(/\n/g, '<br>');
+            finalAnswer = finalAnswer.replace('[REFRESH]', '').trim(); 
         }
 
-        // Save to history
-        conversationHistory.push({ role: "assistant", content: fullAIResponse });
+        conversationHistory.push({ role: "assistant", content: finalAnswer });
+        appendAIMessage('AI', finalAnswer);
 
         if (requiresUIRefresh) {
             window.dispatchEvent(new CustomEvent('PlatformDataChanged', { 
@@ -149,6 +156,7 @@ async function sendAIPrompt() {
         }
 
     } catch (error) {
+        document.getElementById(thinkingId)?.remove();
         appendAIMessage('ERROR', error.message);
     } finally {
         inputElement.disabled = false;
@@ -156,109 +164,6 @@ async function sendAIPrompt() {
         inputElement.focus();
     }
 }
-
-// async function sendAIPrompt() {
-//     const inputElement = document.getElementById('ai-prompt-input');
-//     const sendButton = document.getElementById('send-prompt-btn');
-//     const promptText = inputElement.value.trim();
-
-//     if (!promptText) return;
-
-//     appendAIMessage('USER', promptText);
-//     conversationHistory.push({ role: "user", content: promptText });
-
-//     inputElement.value = '';
-//     inputElement.style.height = 'auto';
-//     inputElement.disabled = true;
-//     sendButton.disabled = true;
-
-//     const thinkingId = appendAIMessage('SYSTEM', 'Processing request...', true);
-
-//     try {
-//         const tenantId = document.getElementById('currentTenant')?.innerText || 'TENANT-ACME';
-//         const userId = document.getElementById('currentUser')?.innerText || 'USER-ALICE';
-//         const currentUIContext = getCurrentUIContext(); 
-
-//         const response = await fetch('/api/ai/prompt', {
-//             method: 'POST',
-//             headers: {
-//                 'Content-Type': 'application/json',
-//                 'x-tenant-id': tenantId,
-//                 'x-user-id': userId,
-//                 'x-execution-mode': 'SYSTEM'
-//             },
-//             body: JSON.stringify({ 
-//                 prompt: promptText, 
-//                 history: conversationHistory,
-//                 current_context: currentUIContext 
-//             })
-//         });
-
-//         const result = await response.json();
-//         document.getElementById(thinkingId)?.remove();
-
-//         if (!response.ok) {
-//             conversationHistory.pop(); 
-//             throw new Error(result.detail || 'Failed to process AI request.');
-//         }
-
-//         // // --- THE ARCHITECTURE UPGRADE: CLIENT-SIDE TOOL EXECUTION ---
-//         // if (result.type === 'ui_command' && result.command === 'ui_navigate') {
-//         //     const { action, target_object, record_id, modal_type } = result.args;
-            
-//         //     // Append a friendly message to the chat
-//         //     conversationHistory.push({ role: "assistant", content: result.answer });
-//         //     appendAIMessage('AI', result.answer);
-
-//         //     // Execute the navigation using your native router and state manager!
-//         //     if (action === 'VIEW_RECORD') {
-//         //         // Must set the recordId in URLState first so router.js picks it up
-//         //         URLState.set({ object: target_object, view: 'detail', recordId: record_id });
-//         //         initRouter(target_object, 'detail');
-//         //     } else if (action === 'VIEW_LIST') {
-//         //         // Clear the recordId and navigate to the list view
-//         //         URLState.set({ object: target_object, view: 'list', recordId: null });
-//         //         initRouter(target_object, 'list');
-//         //     } else if (action === 'OPEN_MODAL') {
-//         //         if (modal_type === 'IMPORT' || modal_type === 'EXPORT') {
-//         //             // Trigger your native Data Migration Modal from index.html
-//         //             if (typeof window.toggleMigrationModal === 'function') {
-//         //                 window.toggleMigrationModal();
-//         //             }
-//         //         }
-//         //     }
-//         //     return; // Stop processing, we are done!
-//         // }
-//         // // --- END UPGRADE ---
-
-
-
-//         let finalAnswer = result.answer;
-//         let requiresUIRefresh = false;
-
-//         if (finalAnswer.includes('[REFRESH]')) {
-//             requiresUIRefresh = true;
-//             finalAnswer = finalAnswer.replace('[REFRESH]', '').trim(); 
-//         }
-
-//         conversationHistory.push({ role: "assistant", content: finalAnswer });
-//         appendAIMessage('AI', finalAnswer);
-
-//         if (requiresUIRefresh) {
-//             window.dispatchEvent(new CustomEvent('PlatformDataChanged', { 
-//                 detail: { source: 'ai_copilot', timestamp: Date.now() }
-//             }));
-//         }
-
-//     } catch (error) {
-//         document.getElementById(thinkingId)?.remove();
-//         appendAIMessage('ERROR', error.message);
-//     } finally {
-//         inputElement.disabled = false;
-//         sendButton.disabled = false;
-//         inputElement.focus();
-//     }
-// }
 
 // function appendAIMessage(sender, text, isThinking = false) {
 //     const chatHistory = document.getElementById('ai-chat-history');

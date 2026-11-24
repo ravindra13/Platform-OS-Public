@@ -36,30 +36,30 @@ class LLMEngine:
             print(f"[LLM Engine Error] Failed calling {target_model}: {str(e)}")
             raise
 
-    async def chat_stream(self, messages: list, tools: list = None, model_override: str = None):
-        """Universal async chat completion supporting token-by-token streaming."""
-        target_model = model_override or self.default_model
+    # async def chat_stream(self, messages: list, tools: list = None, model_override: str = None):
+    #     """Universal async chat completion supporting token-by-token streaming."""
+    #     target_model = model_override or self.default_model
 
-        try:
-            stream = await self.client.chat.completions.create(
-                model=target_model,
-                messages=messages,
-                tools=tools, # Tools can still be passed for function calling during a stream
-                tool_choice="auto",
-                stream=True
-            )
+    #     try:
+    #         stream = await self.client.chat.completions.create(
+    #             model=target_model,
+    #             messages=messages,
+    #             tools=tools, # Tools can still be passed for function calling during a stream
+    #             tool_choice="auto",
+    #             stream=True
+    #         )
             
-            async for chunk in stream:
-                # OpenAI spec yields deltas
-                delta = chunk.choices[0].delta
+    #         async for chunk in stream:
+    #             # OpenAI spec yields deltas
+    #             delta = chunk.choices[0].delta
                 
-                # If the AI is talking to the user, yield the text
-                if delta.content:
-                    yield delta.content
+    #             # If the AI is talking to the user, yield the text
+    #             if delta.content:
+    #                 yield delta.content
                     
-                # Note: Handling tool calls in a stream requires assembling the JSON chunks,
-                # which we will handle in the router.
+    #             # Note: Handling tool calls in a stream requires assembling the JSON chunks,
+    #             # which we will handle in the router.
                 
-        except Exception as e:
-            print(f"[LLM Engine Error] Failed streaming {target_model}: {str(e)}")
-            raise
+    #     except Exception as e:
+    #         print(f"[LLM Engine Error] Failed streaming {target_model}: {str(e)}")
+    #         raise
