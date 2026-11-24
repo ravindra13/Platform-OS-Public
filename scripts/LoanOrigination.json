@@ -1,0 +1,212 @@
+{
+  "module_name": "LoanOrigination",
+  "objects": [
+    {
+      "object_name": "LoanApplication",
+      "label": "Loan Application",
+      "show_in_nav": true,
+      "capabilities": ["record_chat", "file_attachments", "audit_trail"],
+      "fields": [
+        { "field_name": "ApplicantName", "data_type": "STRING", "required": true },
+        { "field_name": "CreditScore", "data_type": "NUMBER", "required": true },
+        { "field_name": "RequestedAmount", "data_type": "CURRENCY", "required": true },
+        { "field_name": "IsRepeatCustomer", "data_type": "BOOLEAN", "required": false },
+        { "field_name": "ApprovalDate", "data_type": "DATETIME", "required": false },
+        {
+          "field_name": "Status",
+          "data_type": "PICKLIST",
+          "required": true,
+          "allowed_values": ["Draft", "Approved", "Manual Review", "Rejected"]
+        }
+      ],
+      "flows": [
+        {
+          "flow_id": "FLOW_PRE_SAVE_EVALUATIONS",
+          "trigger_event": "ON_CREATE",
+          "execution_phase": "BEFORE_SAVE",
+          "active": true,
+          "variables": [
+            {
+              "name": "FormattedName",
+              "data_type": "STRING",
+              "expression": "UPPER(Record.ApplicantName)"
+            },
+            {
+              "name": "DisburseTaskDate",
+              "data_type": "DATETIME",
+              "expression": "NOW() + 1"
+            }
+          ],
+"steps": [
+            {
+              "step_id": "STEP_CHECK_STATUS_IS_NULL",
+              "function_name": "LOGICAL_BRANCH",
+              "config": {
+                "condition": [
+                  { "field": "Record.Status", "operator": "==", "value": null }
+                ]
+              },
+              "true_steps": [
+                {
+                  "step_id": "STEP_SET_DEFAULT_STATUS",
+                  "function_name": "ASSIGN_VARIABLES",
+                  "config": {
+                    "assignments": [
+                      {
+                        "field": "Record.Status",
+                        "value": "Draft"
+                      }
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "step_id": "STEP_FORMAT_NAME",
+              "function_name": "ASSIGN_VARIABLES",
+              "config": {
+                "assignments": [
+                  {
+                    "field": "Record.ApplicantName",
+                    "value": "FormattedName",
+                    "rightOperandType": "REFERENCE"
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "flow_id": "FLOW_AUTO_UNDERWRITING_ENGINE",
+          "trigger_event": "ON_CREATE",
+          "execution_phase": "AFTER_SAVE",
+          "active": true,
+          "variables": [
+            {
+              "name": "CurrentTime",
+              "data_type": "DATETIME",
+              "expression": "NOW()"
+            },
+            {
+              "name": "DisburseTaskTitle",
+              "data_type": "STRING",
+              "expression": "'Disburse funds for ' + Record.ApplicantName"
+            },
+            {
+              "name": "DisburseTaskDate",
+              "data_type": "DATE",
+              "expression": "TODAY() + 2"
+            },
+            {
+              "name": "ReviewTaskDate",
+              "data_type": "DATE",
+              "expression": "TODAY() + 5"
+            }
+          ],
+          "steps": [
+            {
+              "step_id": "STEP_DECISION_TREE",
+              "function_name": "LOGICAL_BRANCH",
+              "config": {
+                "condition": {
+                  "condition_logic": "AND",
+                  "conditions": [
+                    { "field": "Record.CreditScore", "operator": ">=", "value": 750 },
+                    { "field": "Record.RequestedAmount", "operator": "<=", "value": 50000 }
+                  ]
+                }
+              },
+              "true_steps": [
+                {
+                  "step_id": "STEP_AUTO_APPROVE",
+                  "function_name": "MODIFY_RECORD",
+                  "config": {
+                    "target_object": "LoanApplication",
+                    "record_id_expr": "Record.Id",
+                    "updates": [
+                      { "field": "Status", "value": "Approved" },
+                      { "field": "ApprovalDate", "value": "CurrentTime", "rightOperandType": "REFERENCE" }
+                    ]
+                  }
+                },
+                {
+                  "step_id": "STEP_CREATE_DISBURSEMENT_TASK",
+                  "function_name": "CREATE_RECORD",
+                  "config": {
+                    "target_object": "SystemTask",
+                    "field_mappings": [
+                      { "field": "ParentRecordId", "value": "Record.Id", "rightOperandType": "REFERENCE" },
+                      { "field": "Title", "value": "DisburseTaskTitle", "rightOperandType": "REFERENCE" },
+                      { "field": "Priority", "value": "High" },
+                      { "field": "DueDate", "value": "DisburseTaskDate", "rightOperandType": "REFERENCE" }
+                    ]
+                  }
+                }
+              ],
+              "false_steps": [
+                {
+                  "step_id": "STEP_REQUIRE_MANUAL_REVIEW",
+                  "function_name": "MODIFY_RECORD",
+                  "config": {
+                    "target_object": "LoanApplication",
+                    "record_id_expr": "Record.Id",
+                    "updates": [
+                      { "field": "Status", "value": "Manual Review" }
+                    ]
+                  }
+                },
+                {
+                  "step_id": "STEP_CREATE_UNDERWRITING_TASK",
+                  "function_name": "CREATE_RECORD",
+                  "config": {
+                    "target_object": "SystemTask",
+                    "field_mappings": [
+                      { "field": "ParentRecordId", "value": "Record.Id", "rightOperandType": "REFERENCE" },
+                      { "field": "Title", "value": "Manual Underwriting Review" },
+                      { "field": "Priority", "value": "Normal" },
+                      { "field": "DueDate", "value": "ReviewTaskDate", "rightOperandType": "REFERENCE" }
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "view_mappings": {
+        "detail": {
+          "layoutType": "CommandCenter",
+          "mainArea": {
+            "fields": ["ApplicantName", "CreditScore", "RequestedAmount", "Status", "ApprovalDate"]
+          },
+          "relatedLists": [
+            {
+              "tabLabel": "Required Tasks",
+              "childObject": "SystemTask",
+              "relationshipField": "ParentRecordId",
+              "columns": ["Title", "Priority", "DueDate"]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "object_name": "SystemTask",
+      "label": "System Task",
+      "show_in_nav": false,
+      "fields": [
+        {
+  "field_name": "ParentRecordId", 
+  "data_type": "REFERENCE", 
+  "required": true,
+  "target_object": "LoanApplication",
+  "relationship_type": "MASTER_DETAIL",
+  "deletion_behavior": "CASCADE"
+},
+        { "field_name": "Title", "data_type": "STRING", "required": true },
+        { "field_name": "Priority", "data_type": "PICKLIST", "required": true, "allowed_values": ["Normal", "High"] },
+        { "field_name": "DueDate", "data_type": "DATE", "required": true }
+      ]
+    }
+  ]
+}

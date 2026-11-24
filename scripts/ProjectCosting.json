@@ -1,0 +1,151 @@
+{
+    "module_name": "ProjectCosting",
+    "objects": [
+        {
+            "object_name": "Project",
+            "label": "Client Project",
+            "show_in_nav": true,
+            "capabilities": ["record_chat", "file_attachments", "audit_trail"],
+            "fields": [
+                { "field_name": "ProjectName", "data_type": "STRING", "required": true },
+                { "field_name": "Status", "data_type": "PICKLIST", "required": true, "allowed_values": ["Draft", "Active", "Completed", "On Hold"] },
+                { "field_name": "AllocatedBudget", "data_type": "CURRENCY", "required": true },
+                { "field_name": "StandardHourlyRate", "data_type": "CURRENCY", "required": true },
+                {
+                    "field_name": "TotalExpenses",
+                    "data_type": "ROLLUP_SUMMARY",
+                    "required": false,
+                    "child_object": "ProjectExpense",
+                    "relationship_field": "ProjectId",
+                    "operation": "SUM",
+                    "target_field": "Amount",
+                    "filter_expression": "IsApproved == True",
+                    "return_type": "CURRENCY"
+                },
+                {
+                    "field_name": "TotalBillableHours",
+                    "data_type": "ROLLUP_SUMMARY",
+                    "required": false,
+                    "child_object": "TimeEntry",
+                    "relationship_field": "ProjectId",
+                    "operation": "SUM",
+                    "target_field": "Hours",
+                    "filter_expression": "IsBillable == True",
+                    "return_type": "NUMBER"
+                },
+                {
+                    "field_name": "CalculatedLaborCost",
+                    "data_type": "FORMULA",
+                    "required": false,
+                    "expression": "TotalBillableHours * StandardHourlyRate",
+                    "return_type": "CURRENCY"
+                },
+                {
+                    "field_name": "TotalProjectCost",
+                    "data_type": "FORMULA",
+                    "required": false,
+                    "expression": "TotalExpenses + CalculatedLaborCost",
+                    "return_type": "CURRENCY"
+                },
+                {
+                    "field_name": "IsOverBudget",
+                    "data_type": "FORMULA",
+                    "required": false,
+                    "expression": "TotalProjectCost > AllocatedBudget",
+                    "return_type": "BOOLEAN"
+                }
+            ],
+            "view_mappings": {
+                "detail": {
+                    "layoutType": "CommandCenter",
+                    "mainArea": {
+                        "fields": [
+                            "ProjectName", "Status", "AllocatedBudget", "StandardHourlyRate",
+                            "TotalExpenses", "TotalBillableHours", "CalculatedLaborCost",
+                            "TotalProjectCost", "IsOverBudget"
+                        ]
+                    },
+                    "relatedLists": [
+                        {
+                            "tabLabel": "Time Entries",
+                            "childObject": "TimeEntry",
+                            "relationshipField": "ProjectId",
+                            "columns": ["EntryDate", "Hours", "IsBillable", "CalculatedBilledAmount"]
+                        },
+                        {
+                            "tabLabel": "Approved Expenses",
+                            "childObject": "ProjectExpense",
+                            "relationshipField": "ProjectId",
+                            "columns": ["ExpenseDate", "Description", "Amount", "IsApproved"]
+                        }
+                    ]
+                },
+                "list": {
+                    "columns": ["ProjectName", "Status", "AllocatedBudget", "TotalProjectCost", "IsOverBudget"]
+                }
+            }
+        },
+        {
+            "object_name": "TimeEntry",
+            "label": "Time Entry",
+            "show_in_nav": false,
+            "capabilities": ["record_chat", "file_attachments", "audit_trail"],
+            "fields": [
+                {
+                    "field_name": "ProjectId",
+                    "data_type": "REFERENCE",
+                    "required": true,
+                    "target_object": "Project",
+                    "relationship_type": "MASTER_DETAIL",
+                    "deletion_behavior": "CASCADE"
+                },
+                { "field_name": "EntryDate", "data_type": "DATE", "required": true },
+                { "field_name": "Hours", "data_type": "NUMBER", "required": true },
+                { "field_name": "IsBillable", "data_type": "BOOLEAN", "required": true },
+                {
+                    "field_name": "CalculatedBilledAmount",
+                    "data_type": "FORMULA",
+                    "required": false,
+                    "expression": "IF(IsBillable, Hours * Project.StandardHourlyRate, 0)",
+                    "return_type": "CURRENCY"
+                }
+            ],
+            "view_mappings": {
+                "detail": {
+                    "layoutType": "CommandCenter",
+                    "mainArea": {
+                        "fields": ["ProjectId", "EntryDate", "Hours", "IsBillable", "CalculatedBilledAmount"]
+                    }
+                }
+            }
+        },
+        {
+            "object_name": "ProjectExpense",
+            "label": "Project Expense",
+            "show_in_nav": false,
+            "capabilities": ["record_chat", "file_attachments", "audit_trail"],
+            "fields": [
+                {
+                    "field_name": "ProjectId",
+                    "data_type": "REFERENCE",
+                    "required": true,
+                    "target_object": "Project",
+                    "relationship_type": "MASTER_DETAIL",
+                    "deletion_behavior": "CASCADE"
+                },
+                { "field_name": "ExpenseDate", "data_type": "DATE", "required": true },
+                { "field_name": "Description", "data_type": "STRING", "required": true },
+                { "field_name": "Amount", "data_type": "CURRENCY", "required": true },
+                { "field_name": "IsApproved", "data_type": "BOOLEAN", "required": true }
+            ],
+            "view_mappings": {
+                "detail": {
+                    "layoutType": "CommandCenter",
+                    "mainArea": {
+                        "fields": ["ProjectId", "ExpenseDate", "Description", "Amount", "IsApproved"]
+                    }
+                }
+            }
+        }
+    ]
+}

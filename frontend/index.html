@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Platform OS | Enterprise</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- <script src="[https://cdn.jsdelivr.net/npm/marked/marked.min.js](https://cdn.jsdelivr.net/npm/marked/marked.min.js)"></script> -->
+     
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <link href="https://googleapis.com" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.js"></script>
+    <style>
+        body { font-family: 'Plus Jakarta Sans', sans-serif; }
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+
+        .sidebar-link { transition: all 0.2s ease; border-left: 3px solid transparent; }
+        .sidebar-link.active {
+            background: linear-gradient(90deg, #e0e7ff 0%, transparent 100%);
+            color: #4f46e5;
+            font-weight: 600;
+            border-left: 3px solid #4f46e5;
+        }
+        .sidebar-link:hover:not(.active) {
+            background-color: #f8fafc;
+            transform: translateX(4px);
+        }
+    </style>
+</head>
+<body class="text-slate-800 antialiased h-screen flex flex-col overflow-hidden bg-slate-50 selection:bg-indigo-100 selection:text-indigo-900">
+
+<!-- Frosted Glass Header -->
+<header class="bg-white/80 backdrop-blur-md border-b border-slate-200 px-6 py-4 flex justify-between items-center z-40 shrink-0">
+
+    <!-- Logo & Home -->
+    <div class="flex items-center gap-3 w-64 cursor-pointer hover:opacity-80 transition-opacity" onclick="window.location.href='index.html'" title="Return to Home">
+        <div class="w-8 h-8 bg-gradient-to-br from-indigo-600 to-violet-600 rounded-xl flex items-center justify-center text-white font-bold text-lg shadow-lg shadow-indigo-500/30">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+        </div>
+        <h1 class="text-lg font-bold bg-clip-text text-transparent bg-gradient-to-r from-slate-800 to-slate-500 tracking-tight">Platform OS</h1>
+    </div>
+
+    <!-- Global Command Search -->
+    <div class="hidden md:flex flex-1 max-w-2xl mx-8 relative group">
+        <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+            <svg class="h-5 w-5 text-slate-400 group-focus-within:text-indigo-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+        </div>
+        <input type="text" id="globalSearchInput" readonly placeholder="Search objects, records, or commands..." class="block w-full pl-11 pr-16 py-2.5 border border-slate-200 rounded-xl leading-5 bg-slate-50/50 text-slate-500 placeholder-slate-400 cursor-text hover:bg-slate-100 hover:border-slate-300 transition-all text-sm outline-none">
+        <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+            <span class="text-[10px] font-bold text-slate-400 bg-white border border-slate-200 rounded px-1.5 py-1 shadow-sm uppercase tracking-widest">Ctrl K</span>
+        </div>
+    </div>
+
+
+    <!-- Integrated AI Orchestrator Toggle -->
+    <button onclick="toggleAIChat()" class="flex items-center gap-2 px-3 py-1.5 mr-4 bg-gradient-to-r from-indigo-50 to-violet-50 text-indigo-700 border border-indigo-200 hover:border-indigo-300 hover:bg-indigo-100 rounded-full text-xs font-bold transition-all shadow-sm">
+        <div class="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse"></div>
+        AI Orchestrator
+    </button>
+
+    <!-- Session Context & Dev Tools -->
+    <div class="flex gap-4 text-sm items-center bg-white shadow-sm px-4 py-2 rounded-full border border-slate-200/60 justify-end">
+        <div class="flex items-center gap-2">
+            <div class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
+            <span class="text-slate-500 hidden lg:inline">Tenant: <strong class="text-slate-800" id="currentTenant">TENANT-ACME</strong></span>
+        </div>
+
+        <div class="w-px h-4 bg-slate-200 hidden lg:block"></div>
+
+        <div class="flex items-center gap-2">
+            <span class="text-slate-500">User: <strong class="text-slate-800" id="currentUser">USER-ALICE</strong></span>
+            <span id="currentProfile" class="hidden">PROF-ADMIN</span>
+        </div>
+
+        <div class="flex items-center gap-1 ml-2">
+            <select id="dev-tenant-switcher" onchange="window.changeTenant(this.value)" class="text-xs p-1 border border-slate-200 rounded bg-slate-50 text-slate-600 outline-none hover:bg-slate-100 transition-colors">
+                <option value="TENANT-ACME">ACME Corp</option>
+                <option value="TENANT-GLOBEX">Globex Inc</option>
+            </select>
+
+            <select id="dev-context-switcher" class="text-xs p-1 border border-slate-200 rounded bg-slate-50 text-slate-600 outline-none hover:bg-slate-100 transition-colors">
+                <option value="">Loading users...</option>
+            </select>
+
+            <button id="dev-admin-reset" title="Emergency Reset to Admin" class="p-1 rounded bg-indigo-50 text-indigo-600 hover:bg-indigo-100 border border-indigo-100 transition-colors flex items-center justify-center">
+                <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10a1 1 0 01-1.64 0l-7-10A1 1 0 013 7h4V2a1 1 0 011.12-.381z" clip-rule="evenodd"></path></svg>
+            </button>
+        </div>
+    </div>
+</header>
+
+<!-- Main Layout (Sidebar + Root) -->
+<div class="flex flex-1 overflow-hidden relative">
+    <aside id="main-sidebar" class="w-72 bg-slate-50 border-r border-slate-200 flex flex-col shrink-0 z-30 shadow-[4px_0_24px_rgba(0,0,0,0.02)] transition-[width] duration-300 overflow-hidden">
+        
+        <div class="p-6 flex justify-between items-center border-b border-slate-100 shrink-0">
+            <span class="text-[11px] font-bold text-slate-400 uppercase tracking-widest">Metadata Objects</span>
+            <button onclick="toggleInstallModal()" class="text-indigo-600 hover:text-indigo-700 bg-indigo-50 hover:bg-indigo-100 px-3 py-1.5 rounded-lg text-xs font-bold transition-all shadow-sm flex items-center gap-1.5 transform hover:scale-105">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
+                Deploy
+            </button>
+        </div>
+        
+        <!-- Scrollable Navigation Area -->
+        <nav class="flex-1 overflow-y-auto py-6 px-2 space-y-8 custom-scrollbar">
+            <!-- 1. Unified Task Workspace -->
+            <div>
+                <div class="px-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-2">
+                    <svg class="w-3.5 h-3.5 text-indigo-500" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"></path></svg>
+                    My Workspace
+                </div>
+                <div id="workspace-nav" class="space-y-1">
+                    <!-- Cross-object saved views will inject here -->
+                </div>
+            </div>
+
+            <!-- 2. System Directory -->
+            <div>
+                <div class="px-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Complete Directory</div>
+                <div id="directory-nav" class="space-y-0.5">
+                    <!-- Standard Object Links will inject here -->
+                </div>
+            </div>
+        </nav>
+
+        <!-- 3. Fixed Footer Tools (Will not scroll away) -->
+        <div class="p-4 border-t border-slate-200 bg-slate-50/50 shrink-0">
+            <div class="px-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">System Tools</div>
+            <button onclick="toggleMigrationModal()" class="w-full flex items-center gap-3 px-3 py-2 text-sm font-medium text-slate-600 hover:text-indigo-600 hover:bg-indigo-50/50 rounded-lg transition-colors sidebar-link">
+                <svg class="w-4 h-4 shrink-0 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+                </svg>
+                Data Migration
+            </button>
+        </div>
+    </aside>
+
+    <!-- Center Content (Sticky Header + Scrollable Canvas) -->
+    <main class="flex-1 flex flex-col min-w-0 bg-white relative">
+        <button onclick="
+            const sb = document.getElementById('main-sidebar');
+            sb.classList.toggle('w-72');
+            sb.classList.toggle('w-0');
+            this.querySelector('svg').classList.toggle('rotate-180');
+        " class="absolute -left-3 top-6 w-6 h-6 bg-white border border-slate-200 text-slate-400 hover:text-indigo-600 hover:border-indigo-300 rounded-full flex items-center justify-center shadow-sm z-50 transition-colors">
+            <svg class="w-3.5 h-3.5 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
+        </button>
+
+        <div id="app-root" class="flex-1 overflow-y-auto px-8 py-6 bg-[radial-gradient(#e2e8f0_1px,transparent_1px)] [background-size:16px_16px]">
+            <div class="flex flex-col items-center justify-center h-full text-slate-400 opacity-90 mt-[-5%]">
+                <div class="w-24 h-24 mb-6 rounded-3xl bg-white flex items-center justify-center border border-slate-200 shadow-sm rotate-3 transition-transform duration-300">
+                    <svg class="w-10 h-10 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M14 10l-2 1m0 0l-2-1m2 1v2.5M20 7l-2 1m2-1l-2-1m2 1v2.5M14 4l-2-1-2 1M4 7l2-1M4 7v2.5M12 21l-2-1m2 1l2-1m-2 1v-2.5M6 18l-2-1v-2.5M18 18l2-1v-2.5"></path></svg>
+                </div>
+                <h2 class="text-2xl font-semibold text-slate-700 mb-2">Workspace Ready</h2>
+                <p class="text-sm">Select a metadata object from the sidebar to initialize the interface.</p>
+            </div>
+        </div>
+    </main>
+
+    <!-- RIGHT SIDEBAR: AI CO-PILOT -->
+    <aside id="ai-copilot-panel" class="hidden w-[400px] bg-slate-50 border-l border-slate-200 flex flex-col shrink-0 z-40 shadow-[-4px_0_24px_rgba(0,0,0,0.02)] transition-all duration-300">
+        <div class="bg-white px-5 py-4 border-b border-slate-200 flex justify-between items-center shadow-sm z-10 shrink-0">
+            <div class="flex items-center gap-3">
+                <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-600 to-violet-600 flex items-center justify-center text-white shadow-sm">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                </div>
+                <div>
+                    <h3 class="font-bold text-slate-800 text-sm tracking-tight">AI Orchestrator</h3>
+                    <p class="text-[10px] font-semibold text-emerald-600 flex items-center gap-1 uppercase tracking-wider">
+                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span> System Online
+                    </p>
+                </div>
+            </div>
+            <!-- Update your external toggleAIChat() to also handle showing/hiding the #ai-fab-button -->
+            <button onclick="toggleAIChat()" class="text-slate-400 hover:text-slate-700 bg-slate-100 hover:bg-slate-200 p-1.5 rounded-md transition-colors">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+            </button>
+        </div>
+
+        <div id="ai-chat-history" class="flex-1 overflow-y-auto p-5 flex flex-col gap-6 custom-scrollbar bg-slate-50">
+            <!-- <div class="flex flex-col gap-1.5 max-w-[90%] self-start">
+                <div class="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Platform AI</div>
+                <div class="bg-white border border-slate-200 text-slate-700 p-4 rounded-2xl rounded-tl-sm shadow-sm text-[13px] leading-relaxed">
+                    Hello! I am your Enterprise AI Orchestrator. You can ask me to inspect schemas, query records, update layouts, or deploy entire apps. How can I help you today?
+                </div>
+            </div> -->
+        </div>
+
+        <div class="p-4 bg-white border-t border-slate-200 shrink-0 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.02)]">
+            <div class="relative flex items-end gap-2 bg-slate-50 border border-slate-200 rounded-xl p-1.5 focus-within:border-indigo-500 focus-within:ring-1 focus-within:ring-indigo-500 transition-all">
+                <textarea id="ai-prompt-input" rows="1" class="flex-1 resize-none bg-transparent p-2.5 text-sm text-slate-700 focus:outline-none max-h-32 custom-scrollbar placeholder-slate-400 font-medium" placeholder="Ask AI to execute a command..."></textarea>
+                <button id="send-prompt-btn" onclick="sendAIPrompt()" class="bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors flex items-center justify-center h-10 w-10 shrink-0 shadow-sm disabled:bg-slate-300 disabled:cursor-not-allowed mb-0.5 mr-0.5">
+                    <svg class="w-4 h-4 transform rotate-90 ml-0.5" fill="currentColor" viewBox="0 0 20 20"><path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z"></path></svg>
+                </button>
+            </div>
+            <div class="text-center mt-2 text-[10px] font-semibold text-slate-400">Shift + Enter for new line</div>
+        </div>
+    </aside>
+
+    <!-- Right-Side Context Panel -->
+    <aside id="context-panel" class="hidden w-80 bg-white border-l border-slate-200 flex flex-col shrink-0 z-20 shadow-[-4px_0_24px_rgba(0,0,0,0.02)]">
+        <div class="p-5 border-b border-slate-100 flex justify-between items-center bg-slate-50/80 backdrop-blur-sm">
+            <h3 class="font-bold text-slate-700 text-sm tracking-tight">Context & Activity</h3>
+            <button onclick="toggleContextPanel()" class="text-slate-400 hover:text-slate-600 bg-white hover:bg-slate-100 p-1 rounded-md transition-colors shadow-sm border border-slate-200">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+            </button>
+        </div>
+        <div class="p-6 overflow-y-auto flex-1 space-y-8">
+            <div class="p-4 bg-indigo-50/50 rounded-xl border border-indigo-100">
+                <h4 class="text-xs font-bold text-indigo-800 mb-2 flex items-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4M6 16l-4-4"></path></svg>
+                    API Endpoint
+                </h4>
+                <code class="text-[11px] text-indigo-600 font-mono break-all font-semibold">POST /api/action/<span id="api-ref-name">Object</span></code>
+            </div>
+            <div>
+                <h4 class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">Recent Changes</h4>
+                <div class="space-y-5 border-l-2 border-slate-100 ml-2 pl-5">
+                    <div class="relative">
+                        <div class="absolute -left-[27px] w-2.5 h-2.5 rounded-full bg-emerald-400 ring-4 ring-white mt-1.5"></div>
+                        <p class="text-sm font-bold text-slate-700">Schema Updated</p>
+                        <p class="text-[11px] font-medium text-slate-500 mt-0.5">By System Admin • 2 mins ago</p>
+                    </div>
+                    <div class="relative">
+                        <div class="absolute -left-[27px] w-2.5 h-2.5 rounded-full bg-blue-400 ring-4 ring-white mt-1.5"></div>
+                        <p class="text-sm font-bold text-slate-700">Validation Rule Added</p>
+                        <p class="text-[11px] font-medium text-slate-500 mt-0.5">Rule: VR_BUDGET_OVERRUN</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </aside>
+
+</div>
+
+<!-- COMMAND PALETTE MODAL -->
+<div id="commandPaletteOverlay" class="hidden fixed inset-0 bg-slate-900/30 backdrop-blur-sm z-[60] flex items-start justify-center pt-[12vh] transition-opacity">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl flex flex-col border border-slate-200 overflow-hidden" onclick="event.stopPropagation()">
+        <div class="relative flex items-center px-4 py-4 border-b border-slate-100">
+            <svg class="h-6 w-6 text-indigo-500 mr-3 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+            <input type="text" id="paletteInput" class="w-full text-lg bg-transparent text-slate-800 placeholder-slate-400 focus:outline-none" placeholder="Search anything...">
+            <button onclick="CommandPalette.close()" class="ml-3 text-[10px] font-bold tracking-widest text-slate-400 border border-slate-200 rounded px-2 py-1 bg-slate-50 hover:bg-slate-100">ESC</button>
+        </div>
+        <div class="max-h-[60vh] overflow-y-auto p-2" id="paletteResults"></div>
+    </div>
+</div>
+
+<!-- DATA MIGRATION MODAL -->
+<div id="migrationModalOverlay" class="hidden fixed inset-0 bg-slate-900/30 backdrop-blur-sm z-[80] flex items-center justify-center transition-opacity" onclick="toggleMigrationModal()">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-3xl flex flex-col border border-slate-200 overflow-hidden" onclick="event.stopPropagation()">
+        <div class="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+            <div class="flex items-center gap-3">
+                <div class="w-8 h-8 rounded-lg bg-indigo-100 text-indigo-600 flex items-center justify-center">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"></path></svg>
+                </div>
+                <div>
+                    <h3 class="font-bold text-slate-800">Data Migration Hub</h3>
+                    <p class="text-[11px] text-slate-500 font-medium">Import CSVs, trigger bulk exports, and track system jobs</p>
+                </div>
+            </div>
+            <button onclick="toggleMigrationModal()" class="text-slate-400 hover:text-slate-700 bg-white hover:bg-slate-100 p-1.5 border border-slate-200 rounded-md transition-colors">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+            </button>
+        </div>
+        <div class="p-6 grid grid-cols-2 gap-6 bg-white">
+            <div class="space-y-6">
+                <div class="border border-slate-200 rounded-xl p-4 bg-slate-50/50">
+                    <h4 class="text-sm font-bold text-slate-800 mb-2">Object Data</h4>
+                    <select id="importObjectSelect" class="w-full text-sm p-2 mb-3 border border-slate-200 rounded-lg outline-none focus:border-indigo-500">
+                        <option value="">Select Target Object...</option>
+                    </select>
+                    <button onclick="executeExport()" class="w-full bg-white border border-slate-300 text-slate-700 text-sm font-bold py-2 rounded-lg hover:bg-slate-50 transition-colors shadow-sm mb-3">
+                        Export Selected Object
+                    </button>
+                    <div class="w-full h-px bg-slate-200 mb-3"></div>
+                    <input type="file" id="importCsvFile" accept=".csv" class="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 mb-3 cursor-pointer"/>
+                    <button onclick="executeImport()" class="w-full bg-indigo-600 text-white text-sm font-bold py-2 rounded-lg hover:bg-indigo-700 transition-colors shadow-sm">
+                        Start Import
+                    </button>
+                </div>
+                <div class="border border-slate-200 rounded-xl p-4 bg-slate-50/50">
+                    <h4 class="text-sm font-bold text-slate-800 mb-2">System Backup</h4>
+                    <p class="text-xs text-slate-500 mb-4">Export all records across all database objects into a single downloadable ZIP archive.</p>
+                    <button onclick="executeBulkExport()" class="w-full bg-slate-800 text-white text-sm font-bold py-2 rounded-lg hover:bg-slate-900 transition-colors shadow-sm flex items-center justify-center gap-2 mt-auto">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
+                        Trigger Bulk Export
+                    </button>
+                </div>
+            </div>
+            <div class="border border-slate-200 rounded-xl p-0 flex flex-col overflow-hidden">
+                <div class="bg-slate-100 px-4 py-2 border-b border-slate-200 flex justify-between items-center">
+                    <h4 class="text-xs font-bold text-slate-600 uppercase tracking-widest">Active Jobs</h4>
+                    <button onclick="refreshJobs()" class="text-indigo-600 hover:text-indigo-800">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                    </button>
+                </div>
+                <div id="jobTrackerList" class="flex-1 overflow-y-auto p-2 bg-slate-50 h-64 custom-scrollbar">
+                    <div class="text-center text-sm text-slate-400 mt-10">No active jobs found.</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- SLIDE-OVER RECORD EDIT PANEL -->
+<div id="recordPanelOverlay" class="hidden fixed inset-0 bg-slate-900/20 backdrop-blur-sm z-[70] transition-opacity" onclick="closeRecordPanel()"></div>
+<div id="recordPanel" class="fixed top-0 right-0 h-full w-full max-w-2xl bg-white shadow-2xl z-[80] transform translate-x-full transition-transform duration-300 flex flex-col border-l border-slate-200">
+    <div class="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+        <div>
+            <div class="text-[11px] font-bold uppercase tracking-widest text-slate-400 mb-0.5" id="recordPanelContext">Edit Record</div>
+            <h3 id="recordPanelTitle" class="text-xl font-bold text-slate-800">Record ID</h3>
+        </div>
+        <button onclick="closeRecordPanel()" class="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+        </button>
+    </div>
+    <div id="recordPanelBody" class="p-8 flex-1 overflow-y-auto custom-scrollbar bg-[radial-gradient(#e2e8f0_1px,transparent_1px)] [background-size:16px_16px]">
+        <!-- Dynamic Edit Form injected here -->
+    </div>
+</div>
+
+<!-- GLOBAL TOAST NOTIFICATION CONTAINER -->
+<div id="global-toast-container" class="fixed top-20 right-6 z-[100] flex flex-col gap-3 pointer-events-none"></div>
+
+<!-- FLOATING AI CO-PILOT BUTTON -->
+<!-- <button id="ai-fab-button" onclick="toggleAIChat()" class="fixed bottom-6 right-6 z-50 flex items-center justify-center w-14 h-14 bg-gradient-to-br from-indigo-600 to-violet-600 text-white rounded-full shadow-lg shadow-indigo-500/30 hover:scale-105 transition-transform border border-indigo-400/30" title="Open AI Co-Pilot">
+    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+    </svg>
+</button> -->
+
+<script type="module" src="js/ai_chat.js"></script>
+<script type="module" src="js/installer.js"></script>
+<script type="module" src="js/helper.js"></script>
+<script type="module">
+    import './js/migration.js'; 
+</script>
+<script type="module" src="js/app.js"></script>
+
+</body>
+</html>

@@ -1,0 +1,43 @@
+{
+  "flow_id": "GadgetInventoryPDFEmailFlow",
+  "target_object": "GadgetInventory",
+  "trigger_event": "ON_CREATE",
+  "execution_phase": "AFTER_SAVE",
+  "variables": [
+    {
+      "name": "pdfVar",
+      "data_type": "STRING"
+    }
+  ],
+  "steps": [
+    {
+      "step_id": "step_generate_pdf",
+      "function_name": "GENERATE_PDF",
+      "config": {
+        "template_code": {
+          "rightOperandType": "STRING",
+          "value": "GADGET_PDF_TEMPLATE"
+        },
+        "output_variable": "pdfVar"
+      }
+    },
+    {
+      "step_id": "step_send_email",
+      "function_name": "SEND_EMAIL",
+      "config": {
+        "recipient_email": {
+          "rightOperandType": "STRING",
+          "value": "rk273206@gmail.com"
+        },
+        "template_code": {
+          "rightOperandType": "STRING",
+          "value": "GADGET_CREATED_EMAIL"
+        },
+        "attachment_path": {
+          "rightOperandType": "REFERENCE",
+          "value": "pdfVar"
+        }
+      }
+    }
+  ]
+}

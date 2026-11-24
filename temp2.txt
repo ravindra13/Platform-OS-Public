@@ -1,0 +1,7 @@
+asyncpg==0.32.0
+fastapi==0.163.2
+openai==3.54.0
+pydantic==2.14.3
+python-dotenv==1.2.4
+uvicorn==0.54.0
+python-multipart==0.0.32

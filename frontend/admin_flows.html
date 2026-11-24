@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Platform OS | Flow Automation Builder</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body class="text-slate-800 antialiased h-screen flex flex-col overflow-hidden selection:bg-indigo-100 selection:text-indigo-900">
+
+    <!-- Header (Cleaned up, Variables moved to sidebar) -->
+    <header class="bg-white/90 backdrop-blur-md border-b border-slate-200 px-8 py-4 flex justify-between items-center z-40 shrink-0 shadow-sm">
+        <div class="flex items-center gap-4">
+            <div class="w-10 h-10 bg-gradient-to-br from-indigo-600 to-violet-600 rounded-xl flex items-center justify-center text-white font-bold text-xl shadow-lg shadow-indigo-500/30">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+            </div>
+            <div>
+                <h1 class="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-slate-800 to-slate-500 tracking-tight leading-tight">Flow Builder (Graph Engine)</h1>
+                <p class="text-[11px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">Strictly Typed Recursive Automation</p>
+            </div>
+        </div>
+        <div class="flex gap-4 text-sm items-center bg-slate-50 px-5 py-2 rounded-full border border-slate-200 justify-end shadow-inner">
+            <span class="text-slate-500">Tenant: <strong class="text-slate-800" id="currentTenant">TENANT-ACME</strong></span>
+            <div class="w-px h-4 bg-slate-200"></div>
+            <span class="text-slate-500">User: <strong class="text-slate-800" id="currentUser">SYS-ADMIN</strong></span>
+        </div>
+    </header>
+
+    <!-- Flex Container for Sidebars + Canvas -->
+    <div class="flex flex-1 overflow-hidden bg-slate-50">
+
+        <!-- NEW: Left Sidebar (Variables / Resources) -->
+        <aside class="w-64 bg-white border-r border-slate-200 shadow-sm flex flex-col shrink-0 z-20">
+            <div class="p-5 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+                <h3 class="text-[11px] font-bold text-slate-500 uppercase tracking-widest">Active Resources</h3>
+                <button type="button" id="btn-open-variables" class="text-indigo-600 hover:text-white hover:bg-indigo-600 bg-indigo-50 rounded p-1 transition-colors" title="Add New Resource">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M12 4v16m8-8H4"></path></svg>
+                </button>
+            </div>
+            <div class="p-4 flex-1 overflow-y-auto">
+                <ul id="variablesList" class="space-y-2">
+                    <!-- Variables will be injected here by JS -->
+                </ul>
+            </div>
+        </aside>
+
+        <!-- Main Canvas (Center) -->
+        <main class="flex-1 overflow-y-auto p-10 bg-[radial-gradient(#cbd5e1_1px,transparent_1px)] [background-size:16px_16px] relative" id="canvasArea">
+            <div class="max-w-4xl mx-auto pb-20">
+                <form id="flowBuilderForm" class="space-y-8">
+                    
+                    <!-- UPDATED: Flow Header Config (Now sticky at the top of the canvas) -->
+                    <div class="bg-white/95 backdrop-blur-md rounded-2xl shadow-md border border-slate-200 p-6 flex flex-wrap gap-4 items-end sticky top-0 z-30">
+                        <div class="flex-1 min-w-[160px]">
+                            <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-1.5 ml-1">Flow ID</label>
+                            <input type="text" id="flowId" required class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all">
+                        </div>
+                        <div class="flex-1 min-w-[160px]">
+                            <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-1.5 ml-1">Target Object</label>
+                            <select id="targetObject" required class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm outline-none cursor-pointer focus:border-indigo-500 transition-all">
+                                <option value="" disabled selected>Loading objects...</option>
+                            </select>
+                        </div>
+                        <div class="flex-1 min-w-[150px]">
+                            <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-1.5 ml-1">Trigger Event</label>
+                            <select id="triggerEvent" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm outline-none focus:border-indigo-500 transition-all">
+                                <option value="ON_CREATE">ON_CREATE</option>
+                                <option value="ON_UPDATE">ON_UPDATE</option>
+                            </select>
+                        </div>
+                        <div class="flex-1 min-w-[180px]">
+                            <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-1.5 ml-1">Execution Phase</label>
+                            <select id="executionPhase" required class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm outline-none cursor-pointer focus:border-indigo-500 transition-all">
+                                <option value="BEFORE_SAVE">Before Save (Fast)</option>
+                                <option value="AFTER_SAVE">After Save (Related)</option>
+                            </select>
+                        </div>
+                        <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-6 py-2 rounded-lg text-sm h-[38px] shadow-md shadow-indigo-200 transition-all">Deploy Flow</button>
+                    </div>
+
+                    <!-- Flow Canvas Nodes -->
+                    <div class="mt-8 bg-white/50 backdrop-blur-sm p-8 rounded-3xl border border-slate-200 shadow-sm">
+                        <div class="flex justify-between items-center mb-8">
+                            <h2 class="text-xl font-bold text-slate-800 tracking-tight">Execution Graph</h2>
+                            <button type="button" id="btn-add-root" class="bg-slate-800 hover:bg-slate-700 text-white px-4 py-1.5 rounded-full text-xs font-bold flex items-center gap-1 transition-colors">
+                                + Add Root Node
+                            </button>
+                        </div>
+                        
+                        <!-- Canvas Root -->
+                        <div id="stepsContainer" class="space-y-6 relative border-l-2 border-indigo-200 ml-4 pl-10 pb-4">
+                            <!-- Compact Nodes Inject Here -->
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </main>
+
+        <!-- UPDATED: Right Sidebar (Reduced from 800px to 450px) -->
+        <aside id="configSidebar" class="w-[450px] bg-white border-l border-slate-200 shadow-2xl flex flex-col hidden transform transition-transform duration-300 z-40">
+            <div class="p-5 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+                <h3 class="font-bold text-slate-800 text-sm">Node Configuration</h3>
+                <button type="button" id="btn-close-sidebar" class="text-slate-400 hover:text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-full w-7 h-7 flex items-center justify-center transition-colors">✕</button>
+            </div>
+
+            <div class="p-6 flex-1 overflow-y-auto space-y-6" id="sidebarContent">
+                <div>
+                    <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5 ml-1">Step ID</label>
+                    <input type="text" id="sideStepId" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-mono outline-none focus:border-indigo-500 focus:bg-white transition-colors" oninput="updateNodeState()">
+                </div>
+
+                <div>
+                    <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5 ml-1">Function Handler</label>
+                    <select id="sideFunction" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm outline-none focus:border-indigo-500 focus:bg-white font-semibold transition-colors" onchange="handleSidebarFunctionChange()">
+                        <option value="ASSIGN_VARIABLES">⚙️ Assign Variables (Update Record)</option>
+                        <option value="FETCH_RECORDS">🔍 Database (Fetch Records)</option>
+                        <option value="CREATE_RECORD">➕ Database (Create Record)</option>
+                        <option value="MODIFY_RECORD">✏️ Database (Modify Record)</option>
+                        <option value="LOGICAL_BRANCH" class="text-indigo-600">🌿 Logical Branch (If / Else)</option>
+                        <option value="FOR_EACH" class="text-blue-600">🔄 Loop List (For Each)</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5 ml-1">JSON Configuration</label>
+                    <textarea id="sideConfig" class="w-full px-4 py-4 bg-slate-900 text-emerald-400 border border-slate-700 rounded-xl text-[13px] font-mono h-[300px] outline-none focus:ring-2 focus:ring-indigo-500 shadow-inner" oninput="updateNodeState()"></textarea>
+                </div>
+            </div>
+        </aside>
+    </div>
+
+    <!-- Variables Modal (Unchanged structurally, styled slightly for consistency) -->
+    <div id="variablesModal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 transition-opacity">
+        <div class="bg-white rounded-2xl shadow-2xl w-[400px] p-7 transform transition-transform">
+            <h3 class="text-lg font-bold text-slate-800 mb-5">Create New Resource</h3>
+
+            <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-1.5 ml-1">Resource Name (e.g., DiscountCalc)</label>
+            <input type="text" id="varName" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg mb-4 text-sm outline-none focus:border-indigo-500 transition-colors">
+
+            <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-1.5 ml-1">Data Type</label>
+            <select id="varType" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg mb-4 text-sm outline-none focus:border-indigo-500 transition-colors">
+                <option value="RECORD">Record</option>
+                <option value="RECORD_COLLECTION">Record Collection (List)</option>
+                <option value="FORMULA">Formula</option>
+            </select>
+
+            <div id="varObjectWrapper" class="mb-6">
+                <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-1.5 ml-1">Object</label>
+                <select id="varObject" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm outline-none focus:border-indigo-500 transition-colors"></select>
+            </div>
+
+            <div id="varFormulaWrapper" class="mb-6 hidden">
+                <label class="block text-[11px] font-bold text-slate-500 uppercase tracking-widest mb-1.5 ml-1">Expression (e.g., Record.Amount * 0.1)</label>
+                <textarea id="varExpression" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm outline-none font-mono focus:border-indigo-500 transition-colors" rows="3"></textarea>
+            </div>
+
+            <div class="flex justify-end gap-3 mt-2">
+                <button type="button" onclick="document.getElementById('variablesModal').classList.add('hidden')" class="px-5 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-lg font-bold transition-colors">Cancel</button>
+                <button type="button" id="btn-save-variable" class="px-5 py-2 text-sm bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-bold shadow-md shadow-indigo-200 transition-colors">Save Resource</button>
+            </div>
+        </div>
+    </div>
+
+    <script type="module" src="./js/admin/flow/flow_app.js"></script>
+</body>
+</html>

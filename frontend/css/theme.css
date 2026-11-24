@@ -1,0 +1,23 @@
+/* frontend/css/theme.css */
+:root {
+    /* Core Brand Colors */
+    --color-brand-primary: 79 70 229;    /* #4f46e5 (Indigo 600) */
+    --color-brand-secondary: 124 58 237; /* #7c3aed (Violet 600) */
+
+    /* Semantic UI Colors */
+    --color-surface-base: 248 250 252;  /* #f8fafc (Slate 50) */
+    --color-surface-panel: 255 255 255; /* #ffffff (White) */
+    --color-text-main: 30 41 59;         /* #1e293b (Slate 800) */
+    --color-text-muted: 100 116 139;     /* #64748b (Slate 500) */
+
+    /* State Colors */
+    --color-state-success: 16 185 129;   /* #10b981 (Emerald 500) */
+    --color-state-error: 244 63 94;      /* #f43f5e (Rose 500) */
+}
+
+/* Example of how easily you can add a dark mode or alternate theme later */
+[data-theme="dark"] {
+    --color-surface-base: 15 23 42;     /* Slate 900 */
+    --color-surface-panel: 30 41 59;    /* Slate 800 */
+    --color-text-main: 248 250 252;     /* Slate 50 */
+}
