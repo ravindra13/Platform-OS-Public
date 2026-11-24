@@ -13,6 +13,7 @@ from api.metadata.router import metadata_router
 # from api.ledger_router import router as ledger_router
 from api.security_router import router as security_router
 from api.ai.router import router as ai_router
+from api.text_router import router as text_router
 
 from fastapi.staticfiles import StaticFiles
 
@@ -103,6 +104,7 @@ app.include_router(metadata_router)
 # app.include_router(ledger_router)
 app.include_router(security_router)
 app.include_router(ai_router)
+app.include_router(text_router)
 # ## Register them into the global container
 # services.registry.register(ElasticsearchPlugin())
 services.registry.register(InboxPlugin())
