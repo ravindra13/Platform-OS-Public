@@ -5,7 +5,7 @@
 
 
 
-from fastapi import HTTPException
+from fastapi import HTTPException, Depends
 from runtime.context.context_models import UserContext
 from runtime.context.context_hydrator import ContextHydrator
 # --> NEW IMPORT: Bring in the Capability Registry
@@ -182,3 +182,14 @@ async def get_request_context(
         mode='USER',
         transaction_id=f"REQ-{uuid.uuid4().hex[:8].upper()}"
     )
+
+
+async def require_system_caller(
+    x_tenant_id: str = Header(...),
+    x_user_id: str = Header(...),
+    x_execution_mode: str = Header("USER")
+) -> None:
+    """Admin-only gate: SYSTEM mode, and a real user acting in their own tenant."""
+    if x_execution_mode != 'SYSTEM':
+        raise HTTPException(status_code=403, detail="Only SYSTEM mode can perform this action.")
+    await services.req_manager.prepare_request(x_tenant_id, x_user_id, [], initial_mode=x_execution_mode)

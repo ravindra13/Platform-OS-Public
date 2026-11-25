@@ -1,5 +1,7 @@
 // module_builder.js
 
+import { executeAction } from "./services/api";
+
 // 1. STATE: Hold the draft in memory
 let currentManifestState = null;
 
@@ -32,7 +34,8 @@ async function handleBuildRequest() {
             headers: {
                 'Content-Type': 'application/json',
                 'x-tenant-id': tenantId,
-                'x-user-id': userId
+                'x-user-id': userId,
+                'x-execute-mode': 'SYSTEM'
             },
             body: JSON.stringify(requestBody)
         });
@@ -242,7 +245,13 @@ async function deployApprovedModule() {
     try {
         const response = await fetch('/api/metadata/orchestrate/import', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            // headers: { 'Content-Type': 'application/json' },
+            headers: {
+                'Content-Type': 'application/json',
+                'x-tenant-id': document.getElementById('currentTenant')?.innerText || 'TENANT-ACME',
+                'x-user-id': document.getElementById('currentUser')?.innerText || 'USER-ALICE',
+                'x-execution-mode': 'SYSTEM'
+            },
             body: JSON.stringify(currentManifestState) 
         });
 

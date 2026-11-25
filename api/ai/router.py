@@ -1,10 +1,10 @@
 # api/ai/router.py
 import json
 from typing import List, Optional, Dict, Any
-from fastapi import APIRouter, HTTPException, Header
+from fastapi import APIRouter, HTTPException, Header, Depends
 from pydantic import BaseModel
 
-from api.dependencies import services
+from api.dependencies import services, require_system_caller
 # from api.ai.tools import USER_TOOLS, ADMIN_TOOLS
 from api.ai.tools import USER_TOOLS, get_admin_tools
 from api.ai.handlers import AIToolHandlers
@@ -187,7 +187,8 @@ ObjectListValidator = TypeAdapter(list[ObjectDefinition])
 async def generate_module_preview(
     payload: AIPromptRequest,
     x_tenant_id: str = Header(...),
-    x_user_id: str = Header(...)
+    x_user_id: str = Header(...),
+    _: None = Depends(require_system_caller)
 ):
     # 1. Establish context (requires Admin rights implicitly for this tool)
     req_context, _ = await services.req_manager.prepare_request(

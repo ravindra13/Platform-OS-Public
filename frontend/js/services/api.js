@@ -95,10 +95,15 @@ export const getHeaders = (isFormData = false) => {
 // };
 
 const apiClient = async (endpoint, options = {}) => {
-    const config = {
-        ...options,
-        headers: getHeaders(options.body instanceof FormData)
-    };
+    // const config = {
+    //     ...options,
+    //     headers: getHeaders(options.body instanceof FormData)
+    // };
+
+    const { system, ...fetchOptions } = options;
+    const headers = getHeaders(options.body instanceof FormData);
+    if (system) headers['x-execution-mode'] = 'SYSTEM';
+    const config = { ...fetchOptions, headers };
 
     if (!config.method || config.method.toUpperCase() === 'GET') {
         config.cache = 'no-store';
@@ -232,7 +237,7 @@ export const createUserAPI = (payload) =>
     apiClient('/api/security/users', { method: 'POST', body: JSON.stringify(payload) });
 
 export const deployOrchestrationPackage = (jsonPayload) =>
-    apiClient('/api/metadata/orchestrate/import', { method: 'POST', body: JSON.stringify(jsonPayload) });
+    apiClient('/api/metadata/orchestrate/import', { method: 'POST', body: JSON.stringify(jsonPayload), system: true });
 
 // ===========================================
 // FAST-PATH CAPABILITY APIs

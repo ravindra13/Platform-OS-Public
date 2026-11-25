@@ -1,6 +1,6 @@
 from typing import Dict, Any
-from fastapi import APIRouter, HTTPException
-from api.dependencies import services
+from fastapi import APIRouter, HTTPException, Depends
+from api.dependencies import services, require_system_caller
 from foundation.core.schema_types import (
     FieldType, FieldDefinition, ReferenceConfig,
     RelationshipType, DeletionBehavior, PicklistConfig, ValidationRuleDefinition,
@@ -163,7 +163,7 @@ async def deploy_manifest(app_data: Dict[str, Any]) -> Dict[str, Any]:
     return {"status": "Success", "deployed_objects": created_objects}
 
 @router.post("/import")
-async def import_app_from_api(app_data: Dict[str, Any]):
+async def import_app_from_api(app_data: Dict[str, Any], _: None = Depends(require_system_caller)):
     """Standard endpoint for importing managed packages without AI."""
     try:
         res = await deploy_manifest(app_data)
