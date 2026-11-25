@@ -1,0 +1,695 @@
+{
+  "module_name": "Quotes, Jobs and Invoices",
+  "objects": [
+    {
+      "object_name": "Customer",
+      "label": "Customer",
+      "show_in_nav": true,
+      "capabilities": [
+        "record_chat",
+        "file_attachments",
+        "audit_trail"
+      ],
+      "fields": [
+        {
+          "field_name": "CustomerName",
+          "data_type": "STRING",
+          "required": true
+        },
+        {
+          "field_name": "Phone",
+          "data_type": "PHONE",
+          "required": false
+        },
+        {
+          "field_name": "Email",
+          "data_type": "EMAIL",
+          "required": false
+        },
+        {
+          "field_name": "City",
+          "data_type": "STRING",
+          "required": false
+        },
+        {
+          "field_name": "GSTIN",
+          "data_type": "STRING",
+          "required": false
+        }
+      ],
+      "view_mappings": {
+        "detail": {
+          "layoutType": "CommandCenter",
+          "mainArea": {
+            "fields": [
+              "CustomerName",
+              "Phone",
+              "Email",
+              "City",
+              "GSTIN"
+            ]
+          },
+          "relatedLists": [
+            {
+              "tabLabel": "Quotes",
+              "childObject": "Quote",
+              "relationshipField": "CustomerId",
+              "columns": [
+                "Title",
+                "QuoteDate",
+                "Status",
+                "TotalAmount"
+              ]
+            },
+            {
+              "tabLabel": "Invoices",
+              "childObject": "Invoice",
+              "relationshipField": "CustomerId",
+              "columns": [
+                "InvoiceDate",
+                "DueDate",
+                "TotalAmount",
+                "BalanceDue",
+                "PaymentStatus"
+              ]
+            }
+          ]
+        },
+        "list": {
+          "columns": [
+            "CustomerName",
+            "Phone",
+            "City"
+          ]
+        }
+      }
+    },
+    {
+      "object_name": "Quote",
+      "label": "Quote",
+      "show_in_nav": true,
+      "capabilities": [
+        "record_chat",
+        "file_attachments",
+        "audit_trail"
+      ],
+      "fields": [
+        {
+          "field_name": "CustomerId",
+          "data_type": "REFERENCE",
+          "required": true,
+          "target_object": "Customer",
+          "relationship_type": "LOOKUP",
+          "deletion_behavior": "RESTRICT"
+        },
+        {
+          "field_name": "Title",
+          "data_type": "STRING",
+          "required": true
+        },
+        {
+          "field_name": "QuoteDate",
+          "data_type": "DATE",
+          "required": true
+        },
+        {
+          "field_name": "ValidUntil",
+          "data_type": "FORMULA",
+          "required": false,
+          "expression": "QuoteDate + 15",
+          "return_type": "DATE"
+        },
+        {
+          "field_name": "Status",
+          "data_type": "PICKLIST",
+          "required": true,
+          "allowed_values": [
+            "Draft",
+            "Sent",
+            "Accepted",
+            "Rejected"
+          ]
+        },
+        {
+          "field_name": "Subtotal",
+          "data_type": "ROLLUP_SUMMARY",
+          "required": false,
+          "child_object": "QuoteLine",
+          "relationship_field": "QuoteId",
+          "operation": "SUM",
+          "target_field": "Amount",
+          "return_type": "CURRENCY"
+        },
+        {
+          "field_name": "GSTPercent",
+          "data_type": "NUMBER",
+          "required": true
+        },
+        {
+          "field_name": "GSTAmount",
+          "data_type": "FORMULA",
+          "required": false,
+          "expression": "Subtotal * GSTPercent / 100",
+          "return_type": "CURRENCY"
+        },
+        {
+          "field_name": "TotalAmount",
+          "data_type": "FORMULA",
+          "required": false,
+          "expression": "Subtotal + GSTAmount",
+          "return_type": "CURRENCY"
+        }
+      ],
+      "flows": [
+        {
+          "flow_id": "FLOW_QUOTE_ACCEPTED_CREATES_JOB",
+          "trigger_event": "ON_UPDATE",
+          "execution_phase": "AFTER_SAVE",
+          "active": true,
+          "variables": [],
+          "steps": [
+            {
+              "step_id": "STEP_ACCEPTED_NOW",
+              "function_name": "LOGICAL_BRANCH",
+              "config": {
+                "condition": {
+                  "condition_logic": "AND",
+                  "conditions": [
+                    {
+                      "field": "Record.Status",
+                      "operator": "==",
+                      "value": "Accepted"
+                    },
+                    {
+                      "field": "Prior.Status",
+                      "operator": "!=",
+                      "value": "Accepted"
+                    }
+                  ]
+                }
+              },
+              "true_steps": [
+                {
+                  "step_id": "STEP_CREATE_JOB",
+                  "function_name": "CREATE_RECORD",
+                  "config": {
+                    "target_object": "Job",
+                    "field_mappings": [
+                      {
+                        "field": "CustomerId",
+                        "value": "Record.CustomerId",
+                        "rightOperandType": "REFERENCE"
+                      },
+                      {
+                        "field": "QuoteId",
+                        "value": "Record.Id",
+                        "rightOperandType": "REFERENCE"
+                      },
+                      {
+                        "field": "Title",
+                        "value": "Record.Title",
+                        "rightOperandType": "REFERENCE"
+                      },
+                      {
+                        "field": "Status",
+                        "value": "Scheduled"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "view_mappings": {
+        "detail": {
+          "layoutType": "CommandCenter",
+          "mainArea": {
+            "fields": [
+              "CustomerId",
+              "Title",
+              "QuoteDate",
+              "ValidUntil",
+              "Status",
+              "Subtotal",
+              "GSTPercent",
+              "GSTAmount",
+              "TotalAmount"
+            ]
+          },
+          "relatedLists": [
+            {
+              "tabLabel": "Items",
+              "childObject": "QuoteLine",
+              "relationshipField": "QuoteId",
+              "columns": [
+                "Description",
+                "Quantity",
+                "UnitPrice",
+                "Amount"
+              ]
+            }
+          ]
+        },
+        "list": {
+          "columns": [
+            "Title",
+            "QuoteDate",
+            "Status",
+            "TotalAmount"
+          ]
+        }
+      }
+    },
+    {
+      "object_name": "QuoteLine",
+      "label": "Quote Item",
+      "show_in_nav": false,
+      "capabilities": [
+        "record_chat",
+        "file_attachments",
+        "audit_trail"
+      ],
+      "fields": [
+        {
+          "field_name": "QuoteId",
+          "data_type": "REFERENCE",
+          "required": true,
+          "target_object": "Quote",
+          "relationship_type": "MASTER_DETAIL",
+          "deletion_behavior": "CASCADE"
+        },
+        {
+          "field_name": "Description",
+          "data_type": "STRING",
+          "required": true
+        },
+        {
+          "field_name": "Quantity",
+          "data_type": "NUMBER",
+          "required": true
+        },
+        {
+          "field_name": "UnitPrice",
+          "data_type": "CURRENCY",
+          "required": true
+        },
+        {
+          "field_name": "Amount",
+          "data_type": "FORMULA",
+          "required": false,
+          "expression": "Quantity * UnitPrice",
+          "return_type": "CURRENCY"
+        }
+      ],
+      "validation_rules": [
+        {
+          "rule_id": "RULE_QL_QTY_POSITIVE",
+          "error_condition_expr": "Quantity <= 0",
+          "error_message": "Quantity must be more than zero."
+        }
+      ],
+      "view_mappings": {
+        "detail": {
+          "layoutType": "CommandCenter",
+          "mainArea": {
+            "fields": [
+              "QuoteId",
+              "Description",
+              "Quantity",
+              "UnitPrice",
+              "Amount"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "object_name": "Job",
+      "label": "Job",
+      "show_in_nav": true,
+      "capabilities": [
+        "record_chat",
+        "file_attachments",
+        "audit_trail"
+      ],
+      "fields": [
+        {
+          "field_name": "CustomerId",
+          "data_type": "REFERENCE",
+          "required": true,
+          "target_object": "Customer",
+          "relationship_type": "LOOKUP",
+          "deletion_behavior": "RESTRICT"
+        },
+        {
+          "field_name": "QuoteId",
+          "data_type": "REFERENCE",
+          "required": false,
+          "target_object": "Quote",
+          "relationship_type": "LOOKUP",
+          "deletion_behavior": "RESTRICT"
+        },
+        {
+          "field_name": "Title",
+          "data_type": "STRING",
+          "required": true
+        },
+        {
+          "field_name": "Status",
+          "data_type": "PICKLIST",
+          "required": true,
+          "allowed_values": [
+            "Scheduled",
+            "In Progress",
+            "Completed",
+            "Cancelled"
+          ]
+        },
+        {
+          "field_name": "ScheduledDate",
+          "data_type": "DATE",
+          "required": false
+        },
+        {
+          "field_name": "CompletedDate",
+          "data_type": "DATE",
+          "required": false
+        },
+        {
+          "field_name": "Notes",
+          "data_type": "STRING",
+          "required": false
+        }
+      ],
+      "view_mappings": {
+        "detail": {
+          "layoutType": "CommandCenter",
+          "mainArea": {
+            "fields": [
+              "CustomerId",
+              "QuoteId",
+              "Title",
+              "Status",
+              "ScheduledDate",
+              "CompletedDate",
+              "Notes"
+            ]
+          }
+        },
+        "list": {
+          "columns": [
+            "Title",
+            "CustomerId",
+            "Status",
+            "ScheduledDate"
+          ]
+        }
+      }
+    },
+    {
+      "object_name": "Invoice",
+      "label": "Invoice",
+      "show_in_nav": true,
+      "capabilities": [
+        "record_chat",
+        "file_attachments",
+        "audit_trail"
+      ],
+      "fields": [
+        {
+          "field_name": "CustomerId",
+          "data_type": "REFERENCE",
+          "required": true,
+          "target_object": "Customer",
+          "relationship_type": "LOOKUP",
+          "deletion_behavior": "RESTRICT"
+        },
+        {
+          "field_name": "JobId",
+          "data_type": "REFERENCE",
+          "required": false,
+          "target_object": "Job",
+          "relationship_type": "LOOKUP",
+          "deletion_behavior": "RESTRICT"
+        },
+        {
+          "field_name": "InvoiceDate",
+          "data_type": "DATE",
+          "required": true
+        },
+        {
+          "field_name": "PaymentTermsDays",
+          "data_type": "NUMBER",
+          "required": true
+        },
+        {
+          "field_name": "DueDate",
+          "data_type": "FORMULA",
+          "required": false,
+          "expression": "InvoiceDate + PaymentTermsDays",
+          "return_type": "DATE"
+        },
+        {
+          "field_name": "Subtotal",
+          "data_type": "ROLLUP_SUMMARY",
+          "required": false,
+          "child_object": "InvoiceLine",
+          "relationship_field": "InvoiceId",
+          "operation": "SUM",
+          "target_field": "Amount",
+          "return_type": "CURRENCY"
+        },
+        {
+          "field_name": "GSTPercent",
+          "data_type": "NUMBER",
+          "required": true
+        },
+        {
+          "field_name": "GSTAmount",
+          "data_type": "FORMULA",
+          "required": false,
+          "expression": "Subtotal * GSTPercent / 100",
+          "return_type": "CURRENCY"
+        },
+        {
+          "field_name": "TotalAmount",
+          "data_type": "FORMULA",
+          "required": false,
+          "expression": "Subtotal + GSTAmount",
+          "return_type": "CURRENCY"
+        },
+        {
+          "field_name": "AmountPaid",
+          "data_type": "ROLLUP_SUMMARY",
+          "required": false,
+          "child_object": "Payment",
+          "relationship_field": "InvoiceId",
+          "operation": "SUM",
+          "target_field": "Amount",
+          "return_type": "CURRENCY"
+        },
+        {
+          "field_name": "BalanceDue",
+          "data_type": "FORMULA",
+          "required": false,
+          "expression": "TotalAmount - AmountPaid",
+          "return_type": "CURRENCY"
+        },
+        {
+          "field_name": "PaymentStatus",
+          "data_type": "FORMULA",
+          "required": false,
+          "expression": "IF(TotalAmount > 0 and BalanceDue <= 0, 'Paid', IF(AmountPaid > 0, 'Partly Paid', 'Unpaid'))",
+          "return_type": "STRING"
+        }
+      ],
+      "view_mappings": {
+        "detail": {
+          "layoutType": "CommandCenter",
+          "mainArea": {
+            "fields": [
+              "CustomerId",
+              "JobId",
+              "InvoiceDate",
+              "PaymentTermsDays",
+              "DueDate",
+              "Subtotal",
+              "GSTPercent",
+              "GSTAmount",
+              "TotalAmount",
+              "AmountPaid",
+              "BalanceDue",
+              "PaymentStatus"
+            ]
+          },
+          "relatedLists": [
+            {
+              "tabLabel": "Items",
+              "childObject": "InvoiceLine",
+              "relationshipField": "InvoiceId",
+              "columns": [
+                "Description",
+                "Quantity",
+                "UnitPrice",
+                "Amount"
+              ]
+            },
+            {
+              "tabLabel": "Payments",
+              "childObject": "Payment",
+              "relationshipField": "InvoiceId",
+              "columns": [
+                "PaymentDate",
+                "Amount",
+                "Method",
+                "Reference"
+              ]
+            }
+          ]
+        },
+        "list": {
+          "columns": [
+            "InvoiceDate",
+            "CustomerId",
+            "TotalAmount",
+            "BalanceDue",
+            "PaymentStatus"
+          ]
+        }
+      }
+    },
+    {
+      "object_name": "InvoiceLine",
+      "label": "Invoice Item",
+      "show_in_nav": false,
+      "capabilities": [
+        "record_chat",
+        "file_attachments",
+        "audit_trail"
+      ],
+      "fields": [
+        {
+          "field_name": "InvoiceId",
+          "data_type": "REFERENCE",
+          "required": true,
+          "target_object": "Invoice",
+          "relationship_type": "MASTER_DETAIL",
+          "deletion_behavior": "CASCADE"
+        },
+        {
+          "field_name": "Description",
+          "data_type": "STRING",
+          "required": true
+        },
+        {
+          "field_name": "Quantity",
+          "data_type": "NUMBER",
+          "required": true
+        },
+        {
+          "field_name": "UnitPrice",
+          "data_type": "CURRENCY",
+          "required": true
+        },
+        {
+          "field_name": "Amount",
+          "data_type": "FORMULA",
+          "required": false,
+          "expression": "Quantity * UnitPrice",
+          "return_type": "CURRENCY"
+        }
+      ],
+      "validation_rules": [
+        {
+          "rule_id": "RULE_IL_QTY_POSITIVE",
+          "error_condition_expr": "Quantity <= 0",
+          "error_message": "Quantity must be more than zero."
+        }
+      ],
+      "view_mappings": {
+        "detail": {
+          "layoutType": "CommandCenter",
+          "mainArea": {
+            "fields": [
+              "InvoiceId",
+              "Description",
+              "Quantity",
+              "UnitPrice",
+              "Amount"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "object_name": "Payment",
+      "label": "Payment",
+      "show_in_nav": false,
+      "capabilities": [
+        "record_chat",
+        "file_attachments",
+        "audit_trail"
+      ],
+      "fields": [
+        {
+          "field_name": "InvoiceId",
+          "data_type": "REFERENCE",
+          "required": true,
+          "target_object": "Invoice",
+          "relationship_type": "MASTER_DETAIL",
+          "deletion_behavior": "CASCADE"
+        },
+        {
+          "field_name": "PaymentDate",
+          "data_type": "DATE",
+          "required": true
+        },
+        {
+          "field_name": "Amount",
+          "data_type": "CURRENCY",
+          "required": true
+        },
+        {
+          "field_name": "Method",
+          "data_type": "PICKLIST",
+          "required": true,
+          "allowed_values": [
+            "UPI",
+            "Cash",
+            "Bank Transfer",
+            "Cheque",
+            "Card"
+          ]
+        },
+        {
+          "field_name": "Reference",
+          "data_type": "STRING",
+          "required": false
+        }
+      ],
+      "validation_rules": [
+        {
+          "rule_id": "RULE_PAY_AMOUNT_POSITIVE",
+          "error_condition_expr": "Amount <= 0",
+          "error_message": "Payment amount must be more than zero."
+        }
+      ],
+      "view_mappings": {
+        "detail": {
+          "layoutType": "CommandCenter",
+          "mainArea": {
+            "fields": [
+              "InvoiceId",
+              "PaymentDate",
+              "Amount",
+              "Method",
+              "Reference"
+            ]
+          }
+        }
+      }
+    }
+  ]
+}
