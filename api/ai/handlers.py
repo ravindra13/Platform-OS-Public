@@ -389,30 +389,82 @@ class AIToolHandlers:
         except Exception as e:
             return {"error": str(e)}
 
+    # @staticmethod
+    # async def deploy_module_blueprint(args: Dict[str, Any], schema_engine: Any, sec_repo: Any) -> Dict[str, Any]:
+    #     """Executes a full module deployment in a single backend process."""
+    #     try:
+    #         object_name = args["object_name"]
+            
+    #         # 1. Create the base object
+    #         await schema_engine.create_object(object_name=object_name, label=args["label"])
+            
+    #         # 2. Iterate and append fields
+    #         for field_config in args.get("fields", []):
+    #             field_config["object_name"] = object_name
+    #             # Re-use the existing add_field logic
+    #             await AIToolHandlers.add_field(field_config, schema_engine)
+                
+    #         # 3. Iterate and apply permissions
+    #         for perm_config in args.get("permissions", []):
+    #             perm_config["object_name"] = object_name
+    #             # Re-use the existing permissions logic
+    #             await AIToolHandlers.update_object_permissions(perm_config, sec_repo)
+                
+    #         return {
+    #             "status": "Success", 
+    #             "message": f"Module '{object_name}' deployed successfully in a single batch operation."
+    #         }
+    #     except Exception as e:
+    #         return {"error": f"Batch deployment failed: {str(e)}"}
+
+
     @staticmethod
     async def deploy_module_blueprint(args: Dict[str, Any], schema_engine: Any, sec_repo: Any) -> Dict[str, Any]:
-        """Executes a full module deployment in a single backend process."""
+        """Builds an object in one batch, then reads back what actually exists."""
         try:
             object_name = args["object_name"]
-            
+            failures = []
+
             # 1. Create the base object
             await schema_engine.create_object(object_name=object_name, label=args["label"])
-            
-            # 2. Iterate and append fields
+
+            # 2. Add fields. Collect failures instead of ignoring them.
             for field_config in args.get("fields", []):
                 field_config["object_name"] = object_name
-                # Re-use the existing add_field logic
-                await AIToolHandlers.add_field(field_config, schema_engine)
-                
-            # 3. Iterate and apply permissions
+                result = await AIToolHandlers.add_field(field_config, schema_engine)
+                if "error" in result:
+                    failures.append(f"Field '{field_config.get('field_name')}': {result['error']}")
+
+            # 3. Apply permissions, same treatment
             for perm_config in args.get("permissions", []):
                 perm_config["object_name"] = object_name
-                # Re-use the existing permissions logic
-                await AIToolHandlers.update_object_permissions(perm_config, sec_repo)
-                
+                result = await AIToolHandlers.update_object_permissions(perm_config, sec_repo)
+                if "error" in result:
+                    failures.append(f"Permissions for '{perm_config.get('profile_id')}': {result['error']}")
+
+            # 4. READ BACK: report what really exists, not what was requested
+            blueprint = await schema_engine.get_object_blueprint(object_name)
+            actual_fields = {}
+            if blueprint:
+                actual_fields = {
+                    name: (fd.data_type.value if hasattr(fd.data_type, "value") else str(fd.data_type))
+                    for name, fd in blueprint.fields.items()
+                    if not getattr(fd, "is_system", False)
+                }
+
+            requested = [f.get("field_name") for f in args.get("fields", [])]
+            missing = [name for name in requested if name not in actual_fields]
+
             return {
-                "status": "Success", 
-                "message": f"Module '{object_name}' deployed successfully in a single batch operation."
+                "status": "Success" if not failures and not missing else "PartialSuccess",
+                "object_name": object_name,
+                "actual_fields": actual_fields,
+                "failed_items": failures,
+                "requested_but_missing_fields": missing,
+                "instruction_to_assistant": (
+                    "Tell the user only what appears in actual_fields. If failed_items or "
+                    "requested_but_missing_fields is not empty, say plainly what was not created."
+                )
             }
         except Exception as e:
             return {"error": f"Batch deployment failed: {str(e)}"}

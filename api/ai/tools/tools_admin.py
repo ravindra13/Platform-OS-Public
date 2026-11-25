@@ -176,8 +176,30 @@ ADD_FIELD_TOOL = {
                     "type": "string",
                     "description": "MANDATORY if data_type is 'REFERENCE'. The exact name of the parent object."
                 },
-                "expression": { "type": "string", "description": "MANDATORY if data_type is FORMULA. Use AST-compatible expressions." },
-                "return_type": { "type": "string", "description": "MANDATORY if data_type is FORMULA." },
+                # "expression": { "type": "string", "description": "MANDATORY if data_type is FORMULA. Use AST-compatible expressions." },
+                # "return_type": { "type": "string", "description": "MANDATORY if data_type is FORMULA." },
+
+
+                "expression": {
+                    "type": "string",
+                    "description": (
+                        "MANDATORY if data_type is FORMULA. A single expression using field names exactly as they appear on the object. "
+                        "Operators: + - * / == != > < >= <= and or not. "
+                        "Functions: IF(condition, then, else), UPPER(x), LOWER(x), CONTAINS(text, part), BEGINS_WITH(text, prefix), "
+                        "IS_NULL(x), TODAY(), NOW(). "
+                        "Dates are ISO text (YYYY-MM-DD). A date plus or minus a number gives a new date in days, e.g. PickupDate + 15. "
+                        "To read a field on a parent record, use the lookup field's name without 'Id', then a dot, e.g. Order.PickupDate. "
+                        "Text values use single quotes. "
+                        "Examples: Total - Advance   |   PickupDate + 15   |   IF(AlterationDate <= Order.FreeAlterationUntil, 'Free', 'Chargeable')"
+                    )
+                },
+                "return_type": {
+                    "type": "string",
+                    "description": "MANDATORY if data_type is FORMULA. One of: STRING, NUMBER, CURRENCY, DATE, BOOLEAN."
+                },
+
+
+
                 "child_object": { "type": "string", "description": "MANDATORY if data_type is ROLLUP_SUMMARY." },
                 "relationship_field": { "type": "string", "description": "MANDATORY if data_type is ROLLUP_SUMMARY." },
                 "operation": { "type": "string", "enum": ["COUNT", "SUM", "MIN", "MAX"], "description": "MANDATORY if data_type is ROLLUP_SUMMARY." },

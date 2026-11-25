@@ -34,6 +34,7 @@ class ExpressionEvaluator:
         # Semantic Date Functions
         "NOW": lambda args: datetime.now().isoformat(),
         "TODAY": lambda args: datetime.now().date().isoformat(),
+        "IS_NULL": lambda args: (not args) or args[0] is None or str(args[0]).strip() == ""
     }
 
     @classmethod
