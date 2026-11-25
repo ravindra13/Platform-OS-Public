@@ -9,6 +9,8 @@ from api.dependencies import services, require_system_caller
 from api.ai.tools import USER_TOOLS, get_admin_tools
 from api.ai.handlers import AIToolHandlers
 
+from datetime import datetime, timezone, timedelta
+
 router = APIRouter(prefix="/api/ai", tags=["AI Orchestrator"])
 
 class AIPromptRequest(BaseModel):
@@ -66,6 +68,20 @@ async def process_ai_prompt(
             f"The user is currently viewing the following area of the application: {json.dumps(payload.current_context)}.\n"
             f"If the user says 'this object', 'this record', or 'this page', refer strictly to this context."
         )
+
+    # --- DATE AWARENESS: the model does not know today's date unless we tell it ---
+    IST = timezone(timedelta(hours=5, minutes=30))   # India has no daylight saving, so a fixed offset is exact
+    now = datetime.now(IST)
+    system_instruction += (
+        f"\n\nCURRENT DATE AND TIME:\n"
+        f"Today is {now.strftime('%A, %d %B %Y')} ({now.strftime('%Y-%m-%d')}), "
+        f"{now.strftime('%H:%M')} India Standard Time. "
+        f"Work out words like 'today', 'tomorrow' and 'next Friday' from this date. "
+        f"If a date is given without a year, use the nearest upcoming occurrence, never a past year. "
+        f"Always store dates as YYYY-MM-DD."
+    )
+
+
 
     # 1. Start with the System Prompt to establish persona and rules
     messages = [{"role": "system", "content": system_instruction}]

@@ -45,3 +45,10 @@ class SecurityRepository:
     async def remove_record_share(self, record_id: str, user_id: str) -> None:
         """Removes a record share from the database."""
         await self._db.remove_record_share(record_id, user_id)
+
+
+    async def delete_user(self, user_id: str) -> None:
+        await self._db.delete_user(user_id)
+
+    async def delete_profile(self, profile_id: str) -> None:
+        await self._db.delete_profile(profile_id)

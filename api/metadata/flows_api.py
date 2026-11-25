@@ -6,6 +6,7 @@ from pydantic import BaseModel
 from api.dependencies import services, require_system_caller, require_valid_caller
 from foundation.core.schema_types import FlowDefinition, FlowStepDefinition
 from foundation.flow.flow_parser import FlowParser
+from foundation.flow.function_registry import FunctionRegistry
 
 import dataclasses
 
