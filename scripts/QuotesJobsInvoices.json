@@ -158,6 +158,20 @@
           "required": false,
           "expression": "Subtotal + GSTAmount",
           "return_type": "CURRENCY"
+        },
+        {
+          "field_name": "CustomerName",
+          "data_type": "FORMULA",
+          "required": false,
+          "expression": "Customer.CustomerName",
+          "return_type": "STRING"
+        },
+        {
+          "field_name": "CustomerEmail",
+          "data_type": "FORMULA",
+          "required": false,
+          "expression": "Customer.Email",
+          "return_type": "STRING"
         }
       ],
       "flows": [
@@ -215,6 +229,103 @@
                         "value": "Scheduled"
                       }
                     ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "flow_id": "FLOW_QUOTE_SENT_EMAILS_PDF",
+          "trigger_event": "ON_UPDATE",
+          "execution_phase": "AFTER_SAVE",
+          "active": true,
+          "variables": [],
+          "steps": [
+            {
+              "step_id": "STEP_SENT_NOW",
+              "function_name": "LOGICAL_BRANCH",
+              "config": {
+                "condition": {
+                  "condition_logic": "AND",
+                  "conditions": [
+                    {
+                      "field": "Record.Status",
+                      "operator": "==",
+                      "value": "Sent"
+                    },
+                    {
+                      "field": "Prior.Status",
+                      "operator": "!=",
+                      "value": "Sent"
+                    },
+                    {
+                      "field": "Record.CustomerEmail",
+                      "operator": "IS_NULL",
+                      "value": "false"
+                    }
+                  ]
+                }
+              },
+              "true_steps": [
+                {
+                  "step_id": "STEP_FETCH_LINES",
+                  "function_name": "FETCH_RECORDS",
+                  "config": {
+                    "target_object": "QuoteLine",
+                    "output_variable": "Lines",
+                    "filters": [
+                      {
+                        "field": "QuoteId",
+                        "operator": "==",
+                        "value": "Record.Id",
+                        "rightOperandType": "REFERENCE"
+                      }
+                    ]
+                  }
+                },
+                {
+                  "step_id": "STEP_ATTACH_LINES",
+                  "function_name": "ASSIGN_VARIABLES",
+                  "config": {
+                    "assignments": [
+                      {
+                        "field": "Record.Lines",
+                        "value": "Lines",
+                        "rightOperandType": "REFERENCE"
+                      }
+                    ]
+                  }
+                },
+                {
+                  "step_id": "STEP_MAKE_PDF",
+                  "function_name": "GENERATE_PDF",
+                  "config": {
+                    "template_code": {
+                      "value": "QUOTE_PDF",
+                      "rightOperandType": "STRING"
+                    },
+                    "target_object": "Quote",
+                    "output_variable": "PdfPath"
+                  }
+                },
+                {
+                  "step_id": "STEP_EMAIL",
+                  "function_name": "SEND_EMAIL",
+                  "config": {
+                    "template_code": {
+                      "value": "QUOTE_EMAIL",
+                      "rightOperandType": "STRING"
+                    },
+                    "recipient_email": {
+                      "value": "Record.CustomerEmail",
+                      "rightOperandType": "REFERENCE"
+                    },
+                    "target_object": "Quote",
+                    "attachment_path": {
+                      "value": "PdfPath",
+                      "rightOperandType": "REFERENCE"
+                    }
                   }
                 }
               ]
@@ -503,6 +614,30 @@
           "required": false,
           "expression": "IF(TotalAmount > 0 and BalanceDue <= 0, 'Paid', IF(AmountPaid > 0, 'Partly Paid', 'Unpaid'))",
           "return_type": "STRING"
+        },
+        {
+          "field_name": "CustomerName",
+          "data_type": "FORMULA",
+          "required": false,
+          "expression": "Customer.CustomerName",
+          "return_type": "STRING"
+        },
+        {
+          "field_name": "CustomerEmail",
+          "data_type": "FORMULA",
+          "required": false,
+          "expression": "Customer.Email",
+          "return_type": "STRING"
+        },
+        {
+          "field_name": "Status",
+          "data_type": "PICKLIST",
+          "required": false,
+          "allowed_values": [
+            "Draft",
+            "Sent",
+            "Cancelled"
+          ]
         }
       ],
       "view_mappings": {
@@ -510,6 +645,7 @@
           "layoutType": "CommandCenter",
           "mainArea": {
             "fields": [
+              "Status",
               "CustomerId",
               "JobId",
               "InvoiceDate",
@@ -553,12 +689,112 @@
           "columns": [
             "InvoiceDate",
             "CustomerId",
+            "Status",
             "TotalAmount",
             "BalanceDue",
             "PaymentStatus"
           ]
         }
-      }
+      },
+      "flows": [
+        {
+          "flow_id": "FLOW_INVOICE_SENT_EMAILS_PDF",
+          "trigger_event": "ON_UPDATE",
+          "execution_phase": "AFTER_SAVE",
+          "active": true,
+          "variables": [],
+          "steps": [
+            {
+              "step_id": "STEP_SENT_NOW",
+              "function_name": "LOGICAL_BRANCH",
+              "config": {
+                "condition": {
+                  "condition_logic": "AND",
+                  "conditions": [
+                    {
+                      "field": "Record.Status",
+                      "operator": "==",
+                      "value": "Sent"
+                    },
+                    {
+                      "field": "Prior.Status",
+                      "operator": "!=",
+                      "value": "Sent"
+                    },
+                    {
+                      "field": "Record.CustomerEmail",
+                      "operator": "IS_NULL",
+                      "value": "false"
+                    }
+                  ]
+                }
+              },
+              "true_steps": [
+                {
+                  "step_id": "STEP_FETCH_LINES",
+                  "function_name": "FETCH_RECORDS",
+                  "config": {
+                    "target_object": "InvoiceLine",
+                    "output_variable": "Lines",
+                    "filters": [
+                      {
+                        "field": "InvoiceId",
+                        "operator": "==",
+                        "value": "Record.Id",
+                        "rightOperandType": "REFERENCE"
+                      }
+                    ]
+                  }
+                },
+                {
+                  "step_id": "STEP_ATTACH_LINES",
+                  "function_name": "ASSIGN_VARIABLES",
+                  "config": {
+                    "assignments": [
+                      {
+                        "field": "Record.Lines",
+                        "value": "Lines",
+                        "rightOperandType": "REFERENCE"
+                      }
+                    ]
+                  }
+                },
+                {
+                  "step_id": "STEP_MAKE_PDF",
+                  "function_name": "GENERATE_PDF",
+                  "config": {
+                    "template_code": {
+                      "value": "INVOICE_PDF",
+                      "rightOperandType": "STRING"
+                    },
+                    "target_object": "Invoice",
+                    "output_variable": "PdfPath"
+                  }
+                },
+                {
+                  "step_id": "STEP_EMAIL",
+                  "function_name": "SEND_EMAIL",
+                  "config": {
+                    "template_code": {
+                      "value": "INVOICE_EMAIL",
+                      "rightOperandType": "STRING"
+                    },
+                    "recipient_email": {
+                      "value": "Record.CustomerEmail",
+                      "rightOperandType": "REFERENCE"
+                    },
+                    "target_object": "Invoice",
+                    "attachment_path": {
+                      "value": "PdfPath",
+                      "rightOperandType": "REFERENCE"
+                    }
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ]
     },
     {
       "object_name": "InvoiceLine",
