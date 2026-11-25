@@ -87,6 +87,9 @@ class ERPContextHydrator(ContextHydrator):
         if not profile:
             raise HTTPException(status_code=401, detail=f"Profile '{user.profile_id}' not found.")
 
+        if user.tenant_id != tenant_id:
+            raise HTTPException(status_code=403, detail="User does not belong to this tenant.")
+        
         return UserContext(
             tenant_id=tenant_id,
             user_id=user_id,

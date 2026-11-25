@@ -5,6 +5,12 @@ from typing import Optional
 
 router = APIRouter(prefix="/api/security", tags=["Security"])
 
+async def _require_system_caller(x_tenant_id: str, x_user_id: str, x_execution_mode: str) -> None:
+    """Same rule the other admin endpoints follow: SYSTEM mode, and a real user acting in their own tenant."""
+    if x_execution_mode != 'SYSTEM':
+        raise HTTPException(status_code=403, detail="Only SYSTEM mode can perform this action.")
+    await services.req_manager.prepare_request(x_tenant_id, x_user_id, [], initial_mode=x_execution_mode)
+
 class ShareRequest(BaseModel):
     object_name: str # <-- ADD THIS
     record_id: str
@@ -51,9 +57,18 @@ class ObjectPermissionRequest(BaseModel):
     allow_delete: bool = False
 
 
+# @router.post("/permissions/object")
+# async def update_object_permissions(req: ObjectPermissionRequest):
+
 @router.post("/permissions/object")
-async def update_object_permissions(req: ObjectPermissionRequest):
+async def update_object_permissions(
+    req: ObjectPermissionRequest,
+    x_tenant_id: str = Header(...),
+    x_user_id: str = Header(...),
+    x_execution_mode: str = Header("USER")
+):
     """Admin endpoint to modify Object-Level Security for a specific profile."""
+    await _require_system_caller(x_tenant_id, x_user_id, x_execution_mode)
     # # 1. Fetch the existing profile
     profile = await services.sec_repo.get_profile(req.profile_id)
     if not profile:
@@ -116,9 +131,17 @@ async def update_field_security(
         raise HTTPException(status_code=404, detail=str(e))
 
 
+
 @router.get("/profiles/{profile_id}")
-async def get_profile(profile_id: str):
+async def get_profile(
+    profile_id: str,
+    x_tenant_id: str = Header(...),
+    x_user_id: str = Header(...),
+    x_execution_mode: str = Header("USER")
+):
     """Admin endpoint to fetch a profile's current permission matrix."""
+    await _require_system_caller(x_tenant_id, x_user_id, x_execution_mode)
+
     profile = await services.sec_repo.get_profile(profile_id)
     if not profile:
         raise HTTPException(status_code=404, detail="Profile not found.")
@@ -141,38 +164,85 @@ class CreateProfileRequest(BaseModel):
     profile_id: str
     profile_name: str
 
+# @router.post("/profiles")
+# async def create_profile(req: CreateProfileRequest):
+#     """Admin endpoint to stamp out a new empty profile."""
+#     # Creates a fresh profile with empty permission dictionaries
+#     new_profile = Profile(
+#         profile_id=req.profile_id,
+#         profile_name=req.profile_name
+#     )
+#     await services.sec_repo.save_profile(new_profile)
+#     return {"status": "success", "message": f"Profile '{req.profile_id}' created successfully."}
+
 @router.post("/profiles")
-async def create_profile(req: CreateProfileRequest):
+async def create_profile(
+    req: CreateProfileRequest,
+    x_tenant_id: str = Header(...),
+    x_user_id: str = Header(...),
+    x_execution_mode: str = Header("USER")
+):
     """Admin endpoint to stamp out a new empty profile."""
-    # Creates a fresh profile with empty permission dictionaries
-    new_profile = Profile(
-        profile_id=req.profile_id,
-        profile_name=req.profile_name
-    )
+    await _require_system_caller(x_tenant_id, x_user_id, x_execution_mode)
+
+    if await services.sec_repo.get_profile(req.profile_id):
+        raise HTTPException(status_code=409, detail=f"Profile '{req.profile_id}' already exists.")
+
+    new_profile = Profile(profile_id=req.profile_id, profile_name=req.profile_name)
     await services.sec_repo.save_profile(new_profile)
     return {"status": "success", "message": f"Profile '{req.profile_id}' created successfully."}
 
 class CreateUserRequest(BaseModel):
     user_id: str
     profile_id: str
-    tenant_id: str = "TENANT-ACME" # Defaulting for the platform for now
+    # tenant_id: str = "TENANT-ACME" # Defaulting for the platform for now
+
+# @router.post("/users")
+# async def create_user(req: CreateUserRequest):
+#     """Admin endpoint to onboard a new user and assign them a profile."""
+#     # Verify the profile actually exists first
+#     profile = await services.sec_repo.get_profile(req.profile_id)
+#     if not profile:
+#         raise HTTPException(status_code=404, detail=f"Cannot assign user: Profile '{req.profile_id}' does not exist.")
+
+#     new_user = User(
+#         user_id=req.user_id,
+#         name=req.user_id,
+#         profile_id=req.profile_id,
+#         tenant_id=req.tenant_id
+#     )
+#     await services.sec_repo.save_user(new_user)
+#     return {"status": "success", "message": f"User '{req.user_id}' provisioned for tenant '{req.tenant_id}'."}
 
 @router.post("/users")
-async def create_user(req: CreateUserRequest):
-    """Admin endpoint to onboard a new user and assign them a profile."""
-    # Verify the profile actually exists first
+async def create_user(
+    req: CreateUserRequest,
+    x_tenant_id: str = Header(...),
+    x_user_id: str = Header(...),
+    x_execution_mode: str = Header("USER")
+):
+    """Admin endpoint to onboard a new user in the caller's own tenant."""
+    if x_execution_mode != 'SYSTEM':
+        raise HTTPException(status_code=403, detail="Only SYSTEM mode can create users.")
+
+    # Validates that the caller exists and belongs to this tenant (the Step 1 check applies here)
+    await services.req_manager.prepare_request(x_tenant_id, x_user_id, [], initial_mode=x_execution_mode)
+
     profile = await services.sec_repo.get_profile(req.profile_id)
     if not profile:
         raise HTTPException(status_code=404, detail=f"Cannot assign user: Profile '{req.profile_id}' does not exist.")
+
+    if await services.sec_repo.get_user(req.user_id):
+        raise HTTPException(status_code=409, detail=f"User '{req.user_id}' already exists.")
 
     new_user = User(
         user_id=req.user_id,
         name=req.user_id,
         profile_id=req.profile_id,
-        tenant_id=req.tenant_id
+        tenant_id=x_tenant_id
     )
     await services.sec_repo.save_user(new_user)
-    return {"status": "success", "message": f"User '{req.user_id}' provisioned for tenant '{req.tenant_id}'."}
+    return {"status": "success", "message": f"User '{req.user_id}' provisioned for tenant '{x_tenant_id}'."}
 
 
 class UpdateUserRequest(BaseModel):
