@@ -19,12 +19,26 @@ class ShareRequest(BaseModel):
 
 from fastapi import Header
 
+# @router.post("/share")
+# async def share_record_endpoint(
+#     request: ShareRequest,
+#     x_user_id: str = Header(..., description="The ID of the user attempting to share the record")
+# ):
+#     """API endpoint to explicitly share a record with another user."""
+
 @router.post("/share")
 async def share_record_endpoint(
     request: ShareRequest,
+    x_tenant_id: str = Header(...),
     x_user_id: str = Header(..., description="The ID of the user attempting to share the record")
 ):
-    """API endpoint to explicitly share a record with another user."""
+    """API endpoint to explicitly share a record with another user in the same tenant."""
+    await services.req_manager.prepare_request(x_tenant_id, x_user_id, [])   # caller must belong to the tenant
+    target = await services.sec_repo.get_user(request.target_user_id)
+    if not target or target.tenant_id != x_tenant_id:
+        raise HTTPException(status_code=404, detail="Target user not found in your tenant.")
+
+
     try:
         # ARCHITECTURE PURE: Route through the Core domain service to enforce guardrails!
         await services.security_core.grant_access(
@@ -251,47 +265,87 @@ class UpdateUserRequest(BaseModel):
     tenant_id: Optional[str] = None
 
 
+# @router.put("/users/{user_id}")
+# async def update_user(
+#     user_id: str, 
+#     req: UpdateUserRequest, 
+#     x_execution_mode: str = Header("USER")
+# ):
+#     """Admin endpoint to modify an existing user."""
+#     if x_execution_mode != 'SYSTEM':
+#         raise HTTPException(status_code=403, detail="Only SYSTEM mode can modify users.")
+
+#     # # 1. Fetch the existing user
+#     user = await services.sec_repo.get_user(user_id)
+#     if not user:
+#         raise HTTPException(status_code=404, detail="User not found.")
+#     # # 2. Mutate the attributes
+#     if req.name:
+#         user.name = req.name
+#     if req.tenant_id:
+#         user.tenant_id = req.tenant_id
+#     if req.profile_id:
+#         # Validate the new profile exists
+#         profile = await services.sec_repo.get_profile(req.profile_id)
+#         if not profile:
+#             raise HTTPException(status_code=400, detail="Target profile does not exist.")
+#         user.profile_id = req.profile_id
+
+#     # # 3. Upsert back to the database
+#     await services.sec_repo.save_user(user)
+#     return {"status": "success", "message": f"User '{user_id}' updated successfully."}
+
+
 @router.put("/users/{user_id}")
 async def update_user(
-    user_id: str, 
-    req: UpdateUserRequest, 
+    user_id: str,
+    req: UpdateUserRequest,
+    x_tenant_id: str = Header(...),
+    x_user_id: str = Header(...),
     x_execution_mode: str = Header("USER")
 ):
-    """Admin endpoint to modify an existing user."""
-    if x_execution_mode != 'SYSTEM':
-        raise HTTPException(status_code=403, detail="Only SYSTEM mode can modify users.")
+    """Admin endpoint to modify a user in the caller's own tenant."""
+    await _require_system_caller(x_tenant_id, x_user_id, x_execution_mode)
 
-    # # 1. Fetch the existing user
     user = await services.sec_repo.get_user(user_id)
-    if not user:
+    if not user or user.tenant_id != x_tenant_id:
         raise HTTPException(status_code=404, detail="User not found.")
-    # # 2. Mutate the attributes
+
+    if req.tenant_id and req.tenant_id != x_tenant_id:
+        raise HTTPException(status_code=403, detail="Users cannot be moved to another tenant.")
+
     if req.name:
         user.name = req.name
-    if req.tenant_id:
-        user.tenant_id = req.tenant_id
     if req.profile_id:
-        # Validate the new profile exists
         profile = await services.sec_repo.get_profile(req.profile_id)
         if not profile:
             raise HTTPException(status_code=400, detail="Target profile does not exist.")
         user.profile_id = req.profile_id
 
-    # # 3. Upsert back to the database
     await services.sec_repo.save_user(user)
     return {"status": "success", "message": f"User '{user_id}' updated successfully."}
 
+# @router.get("/users")
+# async def list_users(x_execution_mode: str = Header("USER")):
+#     """Admin endpoint to list all users in the directory."""
+#     if x_execution_mode != 'SYSTEM':
+#         raise HTTPException(status_code=403, detail="Only SYSTEM mode can list all users.")
+
+#     # NOTE: You must add this method to your PostgresSecurityMixin!
+#     users = await services.sec_repo.get_all_users()
+#     return {"users": [u.__dict__ for u in users]}
 
 @router.get("/users")
-async def list_users(x_execution_mode: str = Header("USER")):
-    """Admin endpoint to list all users in the directory."""
-    if x_execution_mode != 'SYSTEM':
-        raise HTTPException(status_code=403, detail="Only SYSTEM mode can list all users.")
+async def list_users(
+    x_tenant_id: str = Header(...),
+    x_user_id: str = Header(...),
+    x_execution_mode: str = Header("USER")
+):
+    """Admin endpoint to list the users of the caller's own tenant."""
+    await _require_system_caller(x_tenant_id, x_user_id, x_execution_mode)
 
-    # NOTE: You must add this method to your PostgresSecurityMixin!
     users = await services.sec_repo.get_all_users()
-    return {"users": [u.__dict__ for u in users]}
-
+    return {"users": [u.__dict__ for u in users if u.tenant_id == x_tenant_id]}
 
 @router.delete("/share")
 async def revoke_share_endpoint(
@@ -328,6 +382,15 @@ async def delete_user(
     """Admin endpoint to offboard a user from BOTH Identity and Metadata layers."""
     if x_execution_mode != 'SYSTEM':
         raise HTTPException(status_code=403, detail="Only SYSTEM mode can delete users.")
+
+    await _require_system_caller(x_tenant_id, x_user_id, x_execution_mode)
+
+    target = await services.sec_repo.get_user(user_id)
+    if not target or target.tenant_id != x_tenant_id:
+        raise HTTPException(status_code=404, detail="User not found.")
+    if user_id == x_user_id:
+        raise HTTPException(status_code=400, detail="You cannot delete your own account.")
+
 
     try:
         # 1. Remove the Security Identity (Login access revoked immediately)
@@ -376,3 +439,9 @@ async def delete_profile(
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+async def delete_user(self, user_id: str) -> None:
+    await self._db.delete_user(user_id)
+
+async def delete_profile(self, profile_id: str) -> None:
+    await self._db.delete_profile(profile_id)
