@@ -82,9 +82,13 @@ export const Header = (schema) => {
     header.className = "px-8 py-2 flex justify-between items-center";
 
     const titleBlock = document.createElement('div');
+    // titleBlock.innerHTML = `
+    //     <h2 class="${Theme.dashboard.headerTitle}">${schema.title}</h2>
+    //     <p class="${Theme.dashboard.headerSubtitle}">${schema.subtitle}</p>
+    // `;
     titleBlock.innerHTML = `
         <h2 class="${Theme.dashboard.headerTitle}">${schema.title}</h2>
-        <p class="${Theme.dashboard.headerSubtitle}">${schema.subtitle}</p>
+         ${schema.subtitle ? `<p class="${Theme.dashboard.headerSubtitle}">${schema.subtitle}</p>` : ''}
     `;
     header.appendChild(titleBlock);
 

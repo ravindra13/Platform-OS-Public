@@ -6,6 +6,9 @@ from foundation.expressions.expression_evaluator import ExpressionEvaluator
 class ConfigurableFlowEngine:
     """Executes metadata JSON flow blueprints using recursive graph traversal."""
 
+    MAX_LOOP_ITEMS = 500
+    MAX_STEPS_PER_RUN = 2000
+
     def __init__(self, db_adapter: Any):
         self.db_adapter = db_adapter
 
@@ -13,6 +16,7 @@ class ConfigurableFlowEngine:
         # 1. Provide the resolver to the evaluator
         if "__resolver__" not in context:
             context["__resolver__"] = self._resolve_path
+            context["__step_count__"] = 0
         
         # --- NEW: Lazy Formula Evaluation ---
         formulas = context.get("__formulas__", {})
@@ -112,6 +116,11 @@ class ConfigurableFlowEngine:
 
     async def _execute_step_list(self, steps: List[Dict[str, Any]], context: Dict[str, Any]) -> Dict[str, Any]:
         for step in steps:
+
+            context["__step_count__"] = context.get("__step_count__", 0) + 1
+            if context["__step_count__"] > self.MAX_STEPS_PER_RUN:
+                raise RuntimeError(f"Flow stopped: more than {self.MAX_STEPS_PER_RUN} steps in one run.")
+
             step_id = step.get("step_id", "STEP")
             func_name = step.get("function_name")
             config = step.get("config", {})
@@ -147,6 +156,11 @@ class ConfigurableFlowEngine:
                 loop_steps = step.get("loop_steps", [])
 
                 items_to_loop = self._resolve_path(list_key, context) or []
+
+                if isinstance(items_to_loop, list) and len(items_to_loop) > self.MAX_LOOP_ITEMS:
+                    raise RuntimeError(
+                        f"Flow stopped: the loop over '{list_key}' has {len(items_to_loop)} items; the limit is {self.MAX_LOOP_ITEMS}.")
+
                 print(f"[Flow Engine] Looping over {len(items_to_loop)} items in '{list_key}'.")
 
                 if isinstance(items_to_loop, list):

@@ -10,3 +10,16 @@ export const renderLoading = (container, message = "Loading...") => {
 export const renderError = (container, errorMsg) => {
     container.innerHTML = `<div class="w-full py-8 text-center text-rose-500 font-medium bg-rose-50 rounded-xl border border-rose-100">${errorMsg}</div>`;
 };
+
+
+// Turns a stored field name into a label a person would write: DueDate -> Due Date, OwnerId -> Owner
+export const humanizeLabel = (name) => {
+    if (!name) return '';
+    let s = String(name).replace(/\./g, ' ');
+    if (/[a-z]Id$/.test(s)) s = s.slice(0, -2);              // OwnerId -> Owner
+    s = s.replace(/_/g, ' ')
+         .replace(/([a-z0-9])([A-Z])/g, '$1 $2')              // DueDate -> Due Date
+         .replace(/([A-Z]+)([A-Z][a-z])/g, '$1 $2')           // GSTNumber -> GST Number
+         .trim();
+    return s.charAt(0).toUpperCase() + s.slice(1);
+};

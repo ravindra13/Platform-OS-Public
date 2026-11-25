@@ -30,6 +30,7 @@ class ObjectFlowExecutor:
 
                 flow_context = {
                     "Record": {**(hydrated_context or {}), **(existing_record or {}), **payload},
+                    "Prior": dict(existing_record or {}),
                     "__tenant_id__": context.user.tenant_id,
                     "__user_id__": context.user.user_id,
                     "__internal_save_fn__": internal_save_fn,

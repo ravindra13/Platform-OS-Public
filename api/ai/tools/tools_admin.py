@@ -115,7 +115,16 @@ def get_create_flow_tool():
         "type": "function",
         "function": {
             "name": "create_flow",
-            "description": "Creates a new backend automation flow for an object.",
+            # "description": "Creates a new backend automation flow for an object.",
+            "description": (
+                "Creates a backend automation flow for an object. "
+                "In conditions and expressions, the record being saved is 'Record' (e.g. Record.Status) and its values BEFORE this save "
+                "are 'Prior' (e.g. Prior.Status; empty for a brand-new record). "
+                "To act only when something changes, test both, e.g. Record.Status == 'Complete' and Prior.Status != 'Complete'. "
+                "A flow runs on EVERY save that matches its trigger, so always guard actions that contact people or create records "
+                "(emails, PDFs, new records) with a check that something actually changed. "
+                "Use AFTER_SAVE for actions that contact people or create other records, and BEFORE_SAVE for changing the record itself."
+            ),
             "parameters": {
                 "type": "object",
                 "$defs": defs,  # <-- CRITICAL FIX: Place $defs at the parameters root
