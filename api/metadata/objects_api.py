@@ -1,6 +1,6 @@
-from fastapi import APIRouter, Header, HTTPException
+from fastapi import APIRouter, Header, HTTPException, Depends
 from pydantic import BaseModel
-from api.dependencies import services
+from api.dependencies import services, require_system_caller, require_valid_caller
 from foundation.core.schema_types import (
     FieldDefinition, FieldType, ReferenceConfig, RelationshipType,
     DeletionBehavior, PicklistConfig, FormulaConfig, RollupConfig, RollupOperation
@@ -48,7 +48,8 @@ async def create_new_object(
     req: ObjectCreationRequest,
     x_tenant_id: str = Header(...),
     x_user_id: str = Header(...),
-    x_execution_mode: str = Header("USER")
+    x_execution_mode: str = Header("USER"),
+     _: None = Depends(require_system_caller)
 ):
     if x_execution_mode != 'SYSTEM':
         raise HTTPException(status_code=403, detail="Only SYSTEM / Admin mode can create objects.")
@@ -65,7 +66,8 @@ async def get_object_schema(
     object_name: str,
     x_tenant_id: str = Header(...),
     x_user_id: str = Header(...),
-    x_execution_mode: str = Header("USER")
+    x_execution_mode: str = Header("USER"),
+     _: None = Depends(require_valid_caller)
 ):
     blueprint = await services.schema_engine.get_object_blueprint(object_name)
     if not blueprint:
@@ -158,7 +160,8 @@ async def add_object_field(
     req: FieldCreationRequest,
     x_tenant_id: str = Header(...),
     x_user_id: str = Header(...),
-    x_execution_mode: str = Header("USER")
+    x_execution_mode: str = Header("USER"),
+     _: None = Depends(require_system_caller)
 ):
     """Dynamically attaches a new field (including Lookups) to an object blueprint."""
     if x_execution_mode != 'SYSTEM':
@@ -228,7 +231,8 @@ async def update_object_field(
     object_name: str,
     field_name: str,
     req: FieldUpdateRequest,
-    x_execution_mode: str = Header("USER")
+    x_execution_mode: str = Header("USER"),
+     _: None = Depends(require_system_caller)
 ):
     """Admin endpoint to modify an existing field configuration."""
     if x_execution_mode != 'SYSTEM':
@@ -322,7 +326,8 @@ async def update_system_layout_route(
     req: SystemLayoutUpdateRequest,
     x_tenant_id: str = Header(...),
     x_user_id: str = Header(...),
-    x_execution_mode: str = Header("USER")
+    x_execution_mode: str = Header("USER"),
+     _: None = Depends(require_system_caller)
 ):
     """Updates a Core System Layout (e.g., default list, kanban, detail) in view_mappings."""
     if x_execution_mode != 'SYSTEM':
@@ -344,7 +349,8 @@ async def create_custom_view_route(
     req: CustomViewUpdateRequest,
     x_tenant_id: str = Header(...),
     x_user_id: str = Header(...),
-    x_execution_mode: str = Header("USER")
+    x_execution_mode: str = Header("USER"),
+     _: None = Depends(require_system_caller)
 ):
     """Creates or updates a Custom User View in saved_views."""
     if x_execution_mode != 'SYSTEM':
@@ -368,7 +374,8 @@ async def delete_object(
     object_name: str,
     x_tenant_id: str = Header(...),
     x_user_id: str = Header(...),
-    x_execution_mode: str = Header("USER")
+    x_execution_mode: str = Header("USER"),
+     _: None = Depends(require_system_caller)
 ):
     """Triggers the phase-gated deletion of an entire object blueprint and its physical data."""
     if x_execution_mode != 'SYSTEM':
@@ -389,7 +396,8 @@ async def delete_object_field(
     field_name: str,
     x_tenant_id: str = Header(...),
     x_user_id: str = Header(...),
-    x_execution_mode: str = Header("USER")
+    x_execution_mode: str = Header("USER"),
+     _: None = Depends(require_system_caller)
 ):
     """Triggers the phase-gated deletion of a specific field from an object blueprint."""
     if x_execution_mode != 'SYSTEM':

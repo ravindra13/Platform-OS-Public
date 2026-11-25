@@ -1,5 +1,5 @@
-from fastapi import APIRouter, Header, HTTPException
-from api.dependencies import services
+from fastapi import APIRouter, Header, HTTPException, Depends
+from api.dependencies import services, require_valid_caller
 
 router = APIRouter()
 
@@ -7,7 +7,8 @@ router = APIRouter()
 async def get_dynamic_ui_schema(
     object_name: str,
     view: str = "list",
-    x_user_id: str = Header(...)
+    x_user_id: str = Header(...),
+     _: None = Depends(require_valid_caller)
 ):
     blueprint = await services.schema_engine.get_object_blueprint(object_name)
     if not blueprint:

@@ -1,6 +1,6 @@
-from fastapi import APIRouter, Header, HTTPException
+from fastapi import APIRouter, Header, HTTPException, Depends
 from pydantic import BaseModel
-from api.dependencies import services
+from api.dependencies import services, require_system_caller
 from foundation.core.schema_types import ValidationRuleDefinition
 
 router = APIRouter()
@@ -16,7 +16,8 @@ async def add_validation_rule(
     rule_req: APIValidationRuleRequest,
     x_tenant_id: str = Header(...),
     x_user_id: str = Header(...),
-    x_execution_mode: str = Header("USER")
+    x_execution_mode: str = Header("USER"),
+     _: None = Depends(require_system_caller)
 ):
     if x_execution_mode != 'SYSTEM':
         raise HTTPException(status_code=403, detail="Only SYSTEM / Admin mode can manage metadata rules.")
@@ -44,7 +45,8 @@ async def update_validation_rule(
     object_name: str,
     rule_id: str,
     req: RuleUpdateRequest,
-    x_execution_mode: str = Header("USER")
+    x_execution_mode: str = Header("USER"),
+     _: None = Depends(require_system_caller)
 ):
     """Admin endpoint to modify an existing validation rule."""
     if x_execution_mode != 'SYSTEM':

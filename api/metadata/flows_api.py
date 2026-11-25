@@ -1,9 +1,9 @@
 from typing import Dict, Any, List, Optional, Union
-from fastapi import APIRouter, Header, HTTPException
+from fastapi import APIRouter, Header, HTTPException, Depends
 from pydantic import BaseModel
 
 # Assuming these are imported from your local project structure
-from api.dependencies import services
+from api.dependencies import services, require_system_caller, require_valid_caller
 from foundation.core.schema_types import FlowDefinition, FlowStepDefinition
 from foundation.flow.flow_parser import FlowParser
 
@@ -77,7 +77,8 @@ async def save_flow_definition(
     flow_req: FlowDefinitionSchema,
     x_tenant_id: str = Header(...),
     x_user_id: str = Header(...),
-    x_execution_mode: str = Header("USER")
+    x_execution_mode: str = Header("USER"),
+     _: None = Depends(require_system_caller)
 ):
     if x_execution_mode != 'SYSTEM':
         raise HTTPException(status_code=403, detail="Only SYSTEM / Admin mode can create flow definitions.")
@@ -109,7 +110,8 @@ async def get_flows_for_object(
     object_name: str,
     x_tenant_id: str = Header(...),
     x_user_id: str = Header(...),
-    x_execution_mode: str = Header("USER")
+    x_execution_mode: str = Header("USER"),
+     _: None = Depends(require_valid_caller)
 ):
     blueprint = await services.schema_engine.get_object_blueprint(object_name)
     if not blueprint:
@@ -131,7 +133,8 @@ async def get_flows_for_object(
 @router.get("/flows/actions/available")
 async def get_available_flow_actions(
     x_tenant_id: str = Header(...),
-    x_user_id: str = Header(...)
+    x_user_id: str = Header(...),
+     _: None = Depends(require_valid_caller)
 ):
     """
     Called by the Frontend Flow Canvas to populate its drag-and-drop 

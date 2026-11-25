@@ -193,3 +193,10 @@ async def require_system_caller(
     if x_execution_mode != 'SYSTEM':
         raise HTTPException(status_code=403, detail="Only SYSTEM mode can perform this action.")
     await services.req_manager.prepare_request(x_tenant_id, x_user_id, [], initial_mode=x_execution_mode)
+
+async def require_valid_caller(
+    x_tenant_id: str = Header(...),
+    x_user_id: str = Header(...)
+) -> None:
+    """For read endpoints: the caller must be a real user acting in their own tenant (any mode)."""
+    await services.req_manager.prepare_request(x_tenant_id, x_user_id, [])
